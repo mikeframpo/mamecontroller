@@ -5,14 +5,14 @@
 #include "buttons.h"
 #include "main.h"
 
-button_t buttons[NUM_BUTTONS];
-uint8_t numButtons;
+button_t buttons[MAX_NUM_BUTTONS];
+int8_t numButtons = 0;
 
 void add_button(enum port_enum port, uint8_t mask, enum keycodes key) {
 
 	buttons[numButtons].pinPort = port;
 	buttons[numButtons].pinMask = mask;
-	buttons[numButtons].key = key;
+	buttons[numButtons].key = (uint8_t)key;
 	
 	//set pullup
 	switch(port) {
@@ -42,7 +42,7 @@ void add_button(enum port_enum port, uint8_t mask, enum keycodes key) {
 void init_buttons(void) {
 
 	numButtons = 0;
-	memset(buttons, 0, NUM_BUTTONS * sizeof(button_t));
+	memset(buttons, 0, MAX_NUM_BUTTONS * sizeof(button_t));
 
 	//left buttons
 	add_button(PORT_ENUM_PORTA, (1 << 0), KEY_Z);
@@ -94,7 +94,7 @@ uint8_t get_pin_state(button_t* button) {
 	}
 }
 
-void add_to_buffer(uint8_t* reportBuffer, int8_t* bufLen, enum keycodes key) {
+void add_to_buffer(uint8_t* reportBuffer, int8_t* bufLen, uint8_t key) {
 
 	if (*bufLen < REPORT_BUF_LEN) {
 		reportBuffer[(*bufLen)] = key;
@@ -130,7 +130,7 @@ uint8_t debounce_button(button_t* button) {
 
 int8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen) {
 
-	int8_t numButtonsPressed = 0;
+	int8_t numButtonsChanged = 0;
 	
 	*bufLen = 0;
 	memset(reportBuffer, 0, REPORT_BUF_LEN);
@@ -140,9 +140,11 @@ int8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen) {
 		uint8_t changed = debounce_button(&buttons[iButton]);
 		if (buttons[iButton].realState) {
 			add_to_buffer(reportBuffer, bufLen, buttons[iButton].key);
-			numButtonsPressed++;
+		}
+		if (changed) {
+			numButtonsChanged++;
 		}
 	}
 	
-	return numButtonsPressed;
+	return numButtonsChanged;
 }

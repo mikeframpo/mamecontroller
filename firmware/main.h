@@ -26,6 +26,10 @@
 // if KEY_Z is sent, send player 1's buttons, if KEY_KP5 then send P2's
 //#define DEBUG_CAN_SEND_PLAYERS_BUTTONS
 
+//#define DEBUG_CAN_SEND_PLAYERS_BUTTONS_2
+
+//#define DEBUG_TESTDUMP
+
 /* The USB keycodes are enumerated here - the first part is simply
    an enumeration of the allowed scan-codes used for USB HID devices */
 enum keycodes {

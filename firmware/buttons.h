@@ -2,7 +2,7 @@
 #ifndef DEF_BUTTONS_H
 #define DEF_BUTTONS_H
 
-#define NUM_BUTTONS 22
+#define MAX_NUM_BUTTONS 22
 
 #define PRESSED_CYCLES 1
 #define RELEASED_CYCLES 2
@@ -30,7 +30,7 @@ typedef struct {
 	//state to register as a legit pin change.
 	uint8_t debounceCycles;
 
-	enum keycodes key;
+	uint8_t key;
 
 } button_t;
 
