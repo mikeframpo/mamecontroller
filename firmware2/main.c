@@ -115,6 +115,7 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
         }
         
         if (button->debouncedState) {
+            // TODO: add buffer overflow protection.
             reportBuffer[(*numPressed)++] = button->key;
         }
     }
@@ -153,19 +154,19 @@ void initButtons() {
     
     int index = 0;
 
-    addButton(PORT_A, P2_A, KEY_G, &index);
-    addButton(PORT_A, P2_B, KEY_H, &index);
-    addButton(PORT_A, P2_C, KEY_J, &index);
-    addButton(PORT_A, P2_D, KEY_B, &index);
-    addButton(PORT_A, P2_E, KEY_N, &index);
-    addButton(PORT_A, P2_F, KEY_M, &index);
+    addButton(PORT_A, P1_A, KEY_A, &index);
+    addButton(PORT_A, P1_B, KEY_S, &index);
+    addButton(PORT_A, P1_C, KEY_D, &index);
+    addButton(PORT_A, P1_D, KEY_Z, &index);
+    addButton(PORT_A, P1_E, KEY_X, &index);
+    addButton(PORT_A, P1_F, KEY_C, &index);
     
-    addButton(PORT_C, P2_A, KEY_A, &index);
-    addButton(PORT_C, P2_B, KEY_S, &index);
-    addButton(PORT_C, P2_C, KEY_D, &index);
-    addButton(PORT_C, P2_D, KEY_Z, &index);
-    addButton(PORT_C, P2_E, KEY_X, &index);
-    addButton(PORT_C, P2_F, KEY_C, &index);
+    addButton(PORT_C, P2_A, KEY_G, &index);
+    addButton(PORT_C, P2_B, KEY_H, &index);
+    addButton(PORT_C, P2_C, KEY_J, &index);
+    addButton(PORT_C, P2_D, KEY_B, &index);
+    addButton(PORT_C, P2_E, KEY_N, &index);
+    addButton(PORT_C, P2_F, KEY_M, &index);
 }
 
 int main(void) {

@@ -23,8 +23,8 @@
 #define P2_E (1 << 3) //green
 #define P2_F (1 << 5) //orange
 
-#define DEPRESSED_CYCLES 2
-#define RELEASED_CYCLES 4
+#define DEPRESSED_CYCLES 3
+#define RELEASED_CYCLES 6
 
 typedef enum {
     PORT_A,
