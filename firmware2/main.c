@@ -81,6 +81,8 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 
 #define NUM_BUTTONS 22
 button_t buttons[NUM_BUTTONS];
+button_t* p1Start;
+button_t* p2Start;
 
 static inline bool_t getButtonState(button_t* button) {
     switch(button->port) {
@@ -105,15 +107,17 @@ static inline void resetCycles(button_t* button) {
     }
 }
 
-void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChanged) {
+void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChanged, bool_t* bothStartsPressed) {
     int iButton;
     *numPressed = 0;
     *numChanged = 0;
+    *bothStartsPressed = FALSE;
     memset(reportBuffer, 0, REPORT_BUF_LEN);
 
     // we don't need to send anything in the modifier byte.
     reportBuffer[0] = 0;
     
+    bool_t p1StartPressed = FALSE;
     for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
         
         button_t* button = &buttons[iButton];
@@ -132,6 +136,16 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
         
         if (button->debouncedState) {
             // TODO: add buffer overflow protection.
+	    
+	    // If both starts are pressed we will send the escape char to the PC.
+	    // This relies on the fact that p1Start is always checked before p2.
+	    if (button == p1Start) {
+		p1StartPressed = TRUE;
+	    } else if (button == p2Start
+		       && p1StartPressed) {
+		*bothStartsPressed = TRUE;
+	    }
+	    
             reportBuffer[++(*numPressed)] = button->key;
         }
     }
@@ -176,6 +190,7 @@ void initButtons() {
     addButton(PORT_D, P1_RIGHT, KEY_R, &index);
     
     addButton(PORT_D, P1_START, KEY_F, &index);
+    p1Start = &buttons[index - 1];
 
     addButton(PORT_A, P1_A, KEY_A, &index);
     addButton(PORT_A, P1_B, KEY_S, &index);
@@ -190,6 +205,7 @@ void initButtons() {
     addButton(PORT_B, P2_RIGHT, KEY_I, &index);
     
     addButton(PORT_A, P2_START, KEY_K, &index);
+    p2Start = &buttons[index - 1];
     
     addButton(PORT_C, P2_A, KEY_G, &index);
     addButton(PORT_C, P2_B, KEY_H, &index);
@@ -246,10 +262,16 @@ int main(void) {
             
             int8_t numPressed;
             int8_t numChanged;
-            debounceButtons(reportBuffer, &numPressed, &numChanged);
+	    bool_t bothStartsPressed;
+            debounceButtons(reportBuffer, &numPressed, &numChanged, &bothStartsPressed);
 	    
 	    if (numChanged != 0) {
 		updateNeeded = TRUE;
+	    }
+	    
+	    if (bothStartsPressed) {
+		memset(reportBuffer, 0, sizeof(reportBuffer));
+		reportBuffer[1] = KEY_esc;
 	    }
 	    
 	    if (idleRate != 0) {
