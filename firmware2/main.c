@@ -79,7 +79,7 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 	}
 }
 
-#define NUM_BUTTONS 12
+#define NUM_BUTTONS 22
 button_t buttons[NUM_BUTTONS];
 
 static inline bool_t getButtonState(button_t* button) {
@@ -169,6 +169,13 @@ void addButton(port_t port, uint8_t pin, keycode_t key, int* index) {
 void initButtons() {
     
     int index = 0;
+    
+    addButton(PORT_D, P1_UP, KEY_Q, &index);
+    addButton(PORT_D, P1_DOWN, KEY_W, &index);
+    addButton(PORT_C, P1_LEFT, KEY_E, &index);
+    addButton(PORT_D, P1_RIGHT, KEY_R, &index);
+    
+    addButton(PORT_D, P1_START, KEY_F, &index);
 
     addButton(PORT_A, P1_A, KEY_A, &index);
     addButton(PORT_A, P1_B, KEY_S, &index);
@@ -176,6 +183,13 @@ void initButtons() {
     addButton(PORT_A, P1_D, KEY_Z, &index);
     addButton(PORT_A, P1_E, KEY_X, &index);
     addButton(PORT_A, P1_F, KEY_C, &index);
+    
+    addButton(PORT_B, P2_UP, KEY_T, &index);
+    addButton(PORT_B, P2_DOWN, KEY_Y, &index);
+    addButton(PORT_B, P2_LEFT, KEY_U, &index);
+    addButton(PORT_B, P2_RIGHT, KEY_I, &index);
+    
+    addButton(PORT_A, P2_START, KEY_K, &index);
     
     addButton(PORT_C, P2_A, KEY_G, &index);
     addButton(PORT_C, P2_B, KEY_H, &index);
