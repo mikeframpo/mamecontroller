@@ -76,7 +76,7 @@ void init_buttons(void) {
 	
 }
 
-//Returns true if the input pin is currently high
+//Returns true if the input pin is currently low, meaning the button is pressed.
 uint8_t get_pin_state(button_t* button) {
 	
 	switch(button->pinPort) {
@@ -96,7 +96,7 @@ uint8_t get_pin_state(button_t* button) {
 
 void add_to_buffer(uint8_t* reportBuffer, int8_t* bufLen, enum keycodes key) {
 
-	if (*bufLen < MAX_REPORT_BUF_LEN) {
+	if (*bufLen < REPORT_BUF_LEN) {
 		reportBuffer[(*bufLen)] = key;
 		(*bufLen)++;
 	}
@@ -115,7 +115,7 @@ uint8_t debounce_button(button_t* button) {
 		}
 	} else {
 		button->debounceCycles--;
-		if (button->debounceCycles == 0) {
+		if (button->debounceCycles <= 0) {
 			button->realState = rawState;
 			if (button->realState) {
 				button->debounceCycles = RELEASED_CYCLES;
@@ -128,23 +128,21 @@ uint8_t debounce_button(button_t* button) {
 	return FALSE;
 }
 
-uint8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen) {
+int8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen) {
 
-	uint8_t anyChanged = 0;
+	int8_t numButtonsPressed = 0;
 	
 	*bufLen = 0;
-	memset(reportBuffer, 0, MAX_REPORT_BUF_LEN);
+	memset(reportBuffer, 0, REPORT_BUF_LEN);
 	
 	int8_t iButton;
 	for (iButton = 0; iButton < numButtons; iButton++) {
 		uint8_t changed = debounce_button(&buttons[iButton]);
 		if (buttons[iButton].realState) {
 			add_to_buffer(reportBuffer, bufLen, buttons[iButton].key);
-		}
-		if (changed) {
-			anyChanged = TRUE;
+			numButtonsPressed++;
 		}
 	}
 	
-	return anyChanged;
+	return numButtonsPressed;
 }

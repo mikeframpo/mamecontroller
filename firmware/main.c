@@ -42,29 +42,6 @@ char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] PROGMEM = {
 	0xa1, 0x01,            // COLLECTION (Application)
 	0x05, 0x07,            //   USAGE_PAGE (Keyboard)
 	
-/*	0x19, 0xe0,            //   USAGE_MINIMUM (Keyboard LeftControl)
-	0x29, 0xe7,            //   USAGE_MAXIMUM (Keyboard Right GUI)
-	0x15, 0x00,            //   LOGICAL_MINIMUM (0)
-	0x25, 0x01,            //   LOGICAL_MAXIMUM (1)
-	0x75, 0x01,            //   REPORT_SIZE (1)
-	0x95, 0x08,            //   REPORT_COUNT (8)
-	0x81, 0x02,            //   INPUT (Data,Var,Abs)
-	
-	0x95, 0x01,            //   REPORT_COUNT (1)
-	0x75, 0x08,            //   REPORT_SIZE (8)
-	0x81, 0x03,            //   INPUT (Cnst,Var,Abs)
-	
-	0x95, 0x05,            //   REPORT_COUNT (5)
-	0x75, 0x01,            //   REPORT_SIZE (1)
-	0x05, 0x08,            //   USAGE_PAGE (LEDs)
-	0x19, 0x01,            //   USAGE_MINIMUM (Num Lock)
-	0x29, 0x05,            //   USAGE_MAXIMUM (Kana)
-	0x91, 0x02,            //   OUTPUT (Data,Var,Abs)
-	
-	0x95, 0x01,            //   REPORT_COUNT (1)
-	0x75, 0x03,            //   REPORT_SIZE (3)
-	0x91, 0x03,            //   OUTPUT (Cnst,Var,Abs)*/
-	
 	0x95, 0x08,            //   REPORT_COUNT (6)
 	0x75, 0x08,            //   REPORT_SIZE (8)
 	0x15, 0x00,            //   LOGICAL_MINIMUM (0)
@@ -79,7 +56,7 @@ char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] PROGMEM = {
 
 /* The ReportBuffer contains the USB report sent to the PC */
 
-static uint8_t reportBuffer[MAX_REPORT_BUF_LEN];    /* buffer for HID reports */
+static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports */
 static int8_t bufLen;
 static uint8_t idleRate;           /* in 4 ms units */
 static uint8_t protocolVer = 1;    /* 0 is boot protocol, 1 is report protocol */
@@ -175,7 +152,7 @@ uint8_t   i;
 	
 	init_buttons();
 	
-	uint8_t needsUpdate = 0;
+	int8_t numButtonsPressed = 0;
 	
     for(;;){                
 		/* main event loop */
@@ -185,7 +162,56 @@ uint8_t   i;
 		if (TCNT0 > 60) { //approx 5ms
 			
 			TCNT0 = 0;
-			needsUpdate = debounce_all_buttons(reportBuffer, &bufLen);
+			numButtonsPressed = debounce_all_buttons(reportBuffer, &bufLen);
+			
+#ifdef DEBUG_DEBOUNCE_COUNT
+			memset(reportBuffer, 0, sizeof(reportBuffer));
+			reportBuffer[0] = KEY_A + numButtonsPressed;
+#endif
+
+#ifdef DEBUG_BUF_LEN
+			memset(reportBuffer, 0, sizeof(reportBuffer));
+			reportBuffer[0] = KEY_A + bufLen;
+#endif
+
+#ifdef DEBUG_REPORT_BUF
+			int8_t numNonZeroEntries = 0;
+			int8_t iBuf;
+			for (iBuf = 0; iBuf < sizeof(reportBuffer); iBuf++) {
+				if (reportBuffer[iBuf] != 0) {
+					numNonZeroEntries++;
+				}
+			}
+			memset(reportBuffer, 0, sizeof(reportBuffer));
+			reportBuffer[0] = KEY_A + numNonZeroEntries;
+#endif
+
+#ifdef DEBUG_CAN_SEND_EIGHT
+			if (reportBuffer[0]) {
+				int8_t iBuf;
+				for (iBuf = 0; iBuf < sizeof(reportBuffer); iBuf++) {
+					reportBuffer[iBuf] = KEY_A + iBuf;
+				}
+			}
+#endif
+
+#ifdef DEBUG_CAN_SEND_PLAYERS_BUTTONS
+			if (reportBuffer[0] == KEY_Z) {
+				reportBuffer[0] = KEY_Z;
+				reportBuffer[1] = KEY_B;
+				reportBuffer[2] = KEY_V;
+				reportBuffer[3] = KEY_M;
+				reportBuffer[4] = KEY_N;
+				reportBuffer[5] = KEY_C;
+			} else if (reportBuffer[0] == KEY_KP5) {
+				reportBuffer[0] = KEY_KP5;
+				reportBuffer[1] = KEY_KPplus;
+				reportBuffer[2] = KEY_0;
+				reportBuffer[3] = KEY_6;
+				reportBuffer[4] = KEY_4;
+				reportBuffer[5] = KEY_3;
+			}
+#endif
 		}
 
 		if(usbInterruptIsReady()) {
@@ -193,7 +219,7 @@ uint8_t   i;
 			usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
 			memset(reportBuffer, 0, sizeof(reportBuffer));
 			bufLen = 0;
-			needsUpdate = 0;
+			numButtonsPressed = 0;
 		}
     }
     return 0;

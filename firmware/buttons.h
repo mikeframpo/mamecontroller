@@ -10,10 +10,10 @@
 #include "main.h"
 
 enum port_enum {
-	PORT_ENUM_PORTA = 	(1 << 0),
-	PORT_ENUM_PORTB	=	(1 << 1),
-	PORT_ENUM_PORTC = 	(1 << 2),
-	PORT_ENUM_PORTD = 	(1 << 3)
+	PORT_ENUM_PORTA,
+	PORT_ENUM_PORTB,
+	PORT_ENUM_PORTC,
+	PORT_ENUM_PORTD
 };
 
 typedef struct {
@@ -36,7 +36,7 @@ typedef struct {
 
 void init_buttons(void);
 
-uint8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen);
+int8_t debounce_all_buttons(uint8_t* reportBuffer, int8_t* bufLen);
 
 void clear_queue(void);
 
