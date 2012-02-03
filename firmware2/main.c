@@ -234,6 +234,10 @@ int main(void) {
             int8_t numChanged;
             debounceButtons(reportBuffer, &numPressed, &numChanged);
 	    
+	    if (numChanged != 0) {
+		updateNeeded = TRUE;
+	    }
+	    
 	    if (idleRate != 0) {
 		if (--idleCounter == 0) {
 			idleCounter = idleRate;
