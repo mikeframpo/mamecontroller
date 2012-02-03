@@ -30,10 +30,18 @@ char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = {
     0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
     0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
     0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+    0x95, 0x06,                    //   REPORT_COUNT (6)
+    0x75, 0x08,                    //   REPORT_SIZE (8)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
+    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
+    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
     0xc0                           // END_COLLECTION
 };
 
-#define REPORT_BUF_LEN 8
+#define REPORT_BUF_LEN 14
 static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports */
 static uint8_t idleRate = 1;           /* in 4 ms units */
 static uint8_t protocolVer = 1;    /* 0 is boot protocol, 1 is report protocol */
@@ -226,15 +234,6 @@ int main(void) {
             int8_t numChanged;
             debounceButtons(reportBuffer, &numPressed, &numChanged);
 	    
-	    if (numChanged != 0) {
-		if (PORTD & RED_LED) {
-                    PORTD &= ~RED_LED;
-                } else {
-                    PORTD |= RED_LED;
-                }
-		updateNeeded = TRUE;
-	    }
-	    
 	    if (idleRate != 0) {
 		if (--idleCounter == 0) {
 			idleCounter = idleRate;
@@ -244,7 +243,12 @@ int main(void) {
 	    
 	    if(updateNeeded && usbInterruptIsReady()) {
 		updateNeeded = FALSE;
-		usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
+		usbSetInterrupt(reportBuffer, 8);
+		usbPoll();
+		while(!usbInterruptIsReady()) {
+		    wdt_reset();
+		}
+		usbSetInterrupt(reportBuffer + 8, 6);
 	    }
         }
     }
