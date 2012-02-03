@@ -13,6 +13,7 @@ void add_button(enum port_enum port, uint8_t mask, enum keycodes key) {
 	buttons[numButtons].pinPort = port;
 	buttons[numButtons].pinMask = mask;
 	buttons[numButtons].key = (uint8_t)key;
+	buttons[numButtons].debounceCycles = RELEASED_CYCLES;
 	
 	//set pullup
 	switch(port) {

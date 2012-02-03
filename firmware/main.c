@@ -127,6 +127,11 @@ void transmitKey(uint8_t key) {
 	}
 }
 
+void pressKey(uint8_t key) {
+	transmitKey(key);
+	transmitKey(0);
+}
+
 void dumpMemory(void* ptr, int bytes) {
 	
 	uint8_t* u8ptr = (uint8_t*)ptr;
@@ -138,10 +143,8 @@ void dumpMemory(void* ptr, int bytes) {
 		high = high >> 4;
 		low = low & 0x0F;
 	
-		transmitKey(convertToKey(high));
-		transmitKey(0);
-		transmitKey(convertToKey(low));
-		transmitKey(0);
+		pressKey(convertToKey(high));
+		pressKey(convertToKey(low));
 		
 		u8ptr++;
 		bytes--;
@@ -209,6 +212,11 @@ uint8_t   i;
 	
 	int8_t numButtonsChanged = 0;
 	
+#ifdef DEBUG_DUMP_REPORTBUFFER
+	uint8_t prevReportBuffer[8];
+	memset(prevReportBuffer, 0, sizeof(prevReportBuffer));
+#endif
+	
     for(;;){                
 		/* main event loop */
         wdt_reset();
@@ -271,11 +279,11 @@ uint8_t   i;
 #ifdef DEBUG_CAN_SEND_PLAYERS_BUTTONS_2
 			if (reportBuffer[0] == KEY_Z) {
 				reportBuffer[0] = buttons[0].key;
-				reportBuffer[1] = buttons[4].key;
+				reportBuffer[3] = buttons[4].key;
 				reportBuffer[2] = buttons[3].key;
-				reportBuffer[3] = buttons[6].key;
+				reportBuffer[5] = buttons[6].key;
 				reportBuffer[4] = buttons[5].key;
-				reportBuffer[5] = buttons[2].key;
+				reportBuffer[1] = buttons[2].key;
 			} else if (reportBuffer[0] == KEY_KP5) {
 				reportBuffer[0] = buttons[8].key;
 				reportBuffer[1] = buttons[12].key;
@@ -301,8 +309,21 @@ uint8_t   i;
 			}
 #endif
 
+#ifdef DEBUG_DUMP_REPORTBUFFER
+			if (memcmp(reportBuffer, prevReportBuffer, sizeof(reportBuffer)) != 0) {
+				
+				dumpMemory(reportBuffer, sizeof(reportBuffer));
+				memcpy(prevReportBuffer, reportBuffer, sizeof(reportBuffer));
+				memset(reportBuffer, 0, sizeof(reportBuffer));
+				
+				bufLen = 0;
+				pressKey(KEY_enter);		
+			}
+#endif
+
 		}
 
+#ifndef DEBUG_DUMP_REPORTBUFFER
 		if(usbInterruptIsReady()) {
 		
 			usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
@@ -310,6 +331,7 @@ uint8_t   i;
 			bufLen = 0;
 			numButtonsChanged = 0;
 		}
+#endif
     }
     return 0;
 }

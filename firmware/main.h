@@ -30,6 +30,8 @@
 
 //#define DEBUG_TESTDUMP
 
+//#define DEBUG_DUMP_REPORTBUFFER
+
 /* The USB keycodes are enumerated here - the first part is simply
    an enumeration of the allowed scan-codes used for USB HID devices */
 enum keycodes {

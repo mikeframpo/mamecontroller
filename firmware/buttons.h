@@ -5,7 +5,7 @@
 #define MAX_NUM_BUTTONS 22
 
 #define PRESSED_CYCLES 1
-#define RELEASED_CYCLES 2
+#define RELEASED_CYCLES 1
 
 #include "main.h"
 
