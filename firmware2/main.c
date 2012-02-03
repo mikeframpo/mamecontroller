@@ -10,29 +10,32 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-/* USB report descriptor (length is defined in usbconfig.h)
-   This has been changed to conform to the USB keyboard boot protocol */
-char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] PROGMEM = {
-	0x05, 0x01,            // USAGE_PAGE (Generic Desktop)
-	0x09, 0x06,            // USAGE (Keyboard)
-	0xa1, 0x01,            // COLLECTION (Application)
-	0x05, 0x07,            //   USAGE_PAGE (Keyboard)
-	
-	0x95, 0x08,            //   REPORT_COUNT (6)
-	0x75, 0x08,            //   REPORT_SIZE (8)
-	0x15, 0x00,            //   LOGICAL_MINIMUM (0)
-	0x25, 0x65,            //   LOGICAL_MAXIMUM (101)
-	0x05, 0x07,            //   USAGE_PAGE (Keyboard)
-	
-	0x19, 0x00,            //   USAGE_MINIMUM (Reserved (no event indicated))
-	0x29, 0x65,            //   USAGE_MAXIMUM (Keyboard Application)
-	0x81, 0x00,            //   INPUT (Data,Ary,Abs)
-	0xc0                   // END_COLLECTION
+char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = {
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x06,                    // USAGE (Keyboard)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
+    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x95, 0x08,                    //   REPORT_COUNT (8)
+    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+    0x95, 0x07,                    //   REPORT_COUNT (7)
+    0x75, 0x08,                    //   REPORT_SIZE (8)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
+    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
+    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+    0xc0                           // END_COLLECTION
 };
 
 #define REPORT_BUF_LEN 8
 static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports */
-static uint8_t idleRate;           /* in 4 ms units */
+static uint8_t idleRate = 1;           /* in 4 ms units */
 static uint8_t protocolVer = 1;    /* 0 is boot protocol, 1 is report protocol */
 static uint8_t expectReport = 0;
 
@@ -98,6 +101,11 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
     int iButton;
     *numPressed = 0;
     *numChanged = 0;
+    memset(reportBuffer, 0, REPORT_BUF_LEN);
+
+    // we don't need to send anything in the modifier byte.
+    reportBuffer[0] = 0;
+    
     for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
         
         button_t* button = &buttons[iButton];
@@ -116,7 +124,7 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
         
         if (button->debouncedState) {
             // TODO: add buffer overflow protection.
-            reportBuffer[(*numPressed)++] = button->key;
+            reportBuffer[++(*numPressed)] = button->key;
         }
     }
 }
@@ -202,29 +210,42 @@ int main(void) {
     
     initButtons();
     
+    uint8_t idleCounter = 0;
+    bool_t updateNeeded = FALSE;
+    
+    PORTD |= RED_LED;
+    
     while(1) {
         wdt_reset();
         usbPoll();
         
-        if (TCNT0 > 58) {
+        if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
             
             int8_t numPressed;
             int8_t numChanged;
             debounceButtons(reportBuffer, &numPressed, &numChanged);
-            
-            //if (numPressed != 0 && numChanged != 0) {
-            //    if (PORTD & RED_LED) {
-            //        PORTD &= ~RED_LED;
-            //    } else {
-            //        PORTD |= RED_LED;
-            //    }
-            //}
-        }
-        
-        if(usbInterruptIsReady()) {
-            usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
-            memset(reportBuffer, 0, REPORT_BUF_LEN);
+	    
+	    if (numChanged != 0) {
+		if (PORTD & RED_LED) {
+                    PORTD &= ~RED_LED;
+                } else {
+                    PORTD |= RED_LED;
+                }
+		updateNeeded = TRUE;
+	    }
+	    
+	    if (idleRate != 0) {
+		if (--idleCounter == 0) {
+			idleCounter = idleRate;
+			updateNeeded = TRUE;
+		}
+	    }
+	    
+	    if(updateNeeded && usbInterruptIsReady()) {
+		updateNeeded = FALSE;
+		usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
+	    }
         }
     }
 }
