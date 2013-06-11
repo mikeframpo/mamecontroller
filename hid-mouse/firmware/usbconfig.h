@@ -18,6 +18,9 @@ also hardware interrupt 0 on many devices) and USB D- to Port D bit 4. You may
 wire the lines to any other port, as long as D+ is also wired to INT0 (or any
 other hardware interrupt, as long as it is the highest level interrupt, see
 section at the end of this file).
++ To create your own usbconfig.h file, copy this file to your project's
++ firmware source directory) and rename it to "usbconfig.h".
++ Then edit it accordingly.
 */
 
 /* ---------------------------- Hardware Config ---------------------------- */
@@ -26,7 +29,7 @@ section at the end of this file).
 /* This is the port where the USB bus is connected. When you configure it to
  * "B", the registers PORTB, PINB and DDRB will be used.
  */
-#define USB_CFG_DMINUS_BIT      4
+#define USB_CFG_DMINUS_BIT      5
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
  */
@@ -224,7 +227,7 @@ section at the end of this file).
  * with libusb: 0x16c0/0x5dc.  Use this VID/PID pair ONLY if you understand
  * the implications!
  */
-#define  USB_CFG_DEVICE_ID       0xe8, 0x03 /* VOTI's lab use PID */
+#define  USB_CFG_DEVICE_ID       0xdb, 0x27 /* VOTI's lab use PID */
 /* This is the ID of the product, low byte first. It is interpreted in the
  * scope of the vendor ID. If you have registered your own VID with usb.org
  * or if you have licensed a PID from somebody else, define it here. Otherwise
@@ -238,8 +241,8 @@ section at the end of this file).
 #define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-#define USB_CFG_VENDOR_NAME     'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
-#define USB_CFG_VENDOR_NAME_LEN 8
+#define USB_CFG_VENDOR_NAME     'f', 'r', 'a', 'm', 'p', 'z'
+#define USB_CFG_VENDOR_NAME_LEN 6
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
  * are interpreted as Unicode (UTF-16) entities.
@@ -248,8 +251,8 @@ section at the end of this file).
  * obdev's free shared VID/PID pair. See the file USB-IDs-for-free.txt for
  * details.
  */
-#define USB_CFG_DEVICE_NAME     'M', 'o', 'u', 's', 'e'
-#define USB_CFG_DEVICE_NAME_LEN 5
+#define USB_CFG_DEVICE_NAME     'm', 'i', 'k', 'e', 'r', 'u', 'l', 'z'
+#define USB_CFG_DEVICE_NAME_LEN 8
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USB-IDs-for-free.txt before you assign a name if
  * you use a shared VID/PID.
