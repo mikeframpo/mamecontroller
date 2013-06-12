@@ -241,7 +241,7 @@ section at the end of this file).
 #define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-#define USB_CFG_VENDOR_NAME     'f', 'r', 'a', 'm', 'p', 'z'
+#define USB_CFG_VENDOR_NAME     'w', 'u', 'c', 'a', 'd', 'e'
 #define USB_CFG_VENDOR_NAME_LEN 6
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
@@ -251,8 +251,8 @@ section at the end of this file).
  * obdev's free shared VID/PID pair. See the file USB-IDs-for-free.txt for
  * details.
  */
-#define USB_CFG_DEVICE_NAME     'm', 'i', 'k', 'e', 'r', 'u', 'l', 'z'
-#define USB_CFG_DEVICE_NAME_LEN 8
+#define USB_CFG_DEVICE_NAME     'f', 'i', 'g', 'h', 't', 's', 't', 'i', 'k'
+#define USB_CFG_DEVICE_NAME_LEN 9
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USB-IDs-for-free.txt before you assign a name if
  * you use a shared VID/PID.
