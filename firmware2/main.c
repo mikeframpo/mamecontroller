@@ -43,13 +43,13 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 
 	switch (rq->bRequest) {
 		case USBRQ_HID_GET_IDLE:
-			usbMsgPtr = &idleRate;
+			usbMsgPtr = (usbMsgPtr_t)&idleRate;
 			return 1;
 		case USBRQ_HID_SET_IDLE:
 			idleRate = rq->wValue.bytes[1];
 			return 0;
 		case USBRQ_HID_GET_REPORT:
-	        usbMsgPtr = reportBuffer;
+	        usbMsgPtr = (usbMsgPtr_t)reportBuffer;
 			return sizeof(reportBuffer);
 		default:
 			return 0;
@@ -234,8 +234,6 @@ int main(void) {
     memset(reportBuffer, 0, sizeof(reportBuffer));
 
     initButtons();
-
-    uint8_t idleCounter = 0;
 
     PORTD |= RED_LED;
 
