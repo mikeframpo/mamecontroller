@@ -10,7 +10,7 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-PROGMEM const char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] = {
+const PROGMEM char usbHidReportDescriptor[35] = {   /* USB report descriptor */
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
     0x09, 0x06,                    // USAGE (Keyboard)
     0xa1, 0x01,                    // COLLECTION (Application)
@@ -22,34 +22,21 @@ PROGMEM const char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
     0x75, 0x01,                    //   REPORT_SIZE (1)
     0x95, 0x08,                    //   REPORT_COUNT (8)
     0x81, 0x02,                    //   INPUT (Data,Var,Abs)
-    0x95, 0x07,                    //   REPORT_COUNT (7)
+    0x95, 0x01,                    //   REPORT_COUNT (1)
     0x75, 0x08,                    //   REPORT_SIZE (8)
-    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
     0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
-    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
-    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
-    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
-    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
-    0x95, 0x06,                    //   REPORT_COUNT (6)
-    0x75, 0x08,                    //   REPORT_SIZE (8)
-    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
-    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
-    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
     0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
     0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
     0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
     0xc0                           // END_COLLECTION
 };
 
-#define REPORT_BUF_LEN 14
-static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports */
-static uint8_t idleRate = 1;           /* in 4 ms units */
-static uint8_t protocolVer = 1;    /* 0 is boot protocol, 1 is report protocol */
-static uint8_t expectReport = 0;
+#define REPORT_BUF_LEN 1
+static uint8_t reportBuffer[REPORT_BUF_LEN + 1];    /* buffer for HID reports, extra 1 is for the modifier byte. */
+static uint8_t idleRate = 1;
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
 	usbRequest_t *rq = (void *)data;
-	usbMsgPtr = reportBuffer;
 
 	if ((rq->bmRequestType & USBRQ_TYPE_MASK) != USBRQ_TYPE_CLASS)
 		return 0;
@@ -62,18 +49,8 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 			idleRate = rq->wValue.bytes[1];
 			return 0;
 		case USBRQ_HID_GET_REPORT:
+	        usbMsgPtr = reportBuffer;
 			return sizeof(reportBuffer);
-		case USBRQ_HID_SET_REPORT:
-			if (rq->wLength.word == 1)
-				expectReport = 1;
-			return expectReport == 1 ? 0xFF : 0;
-		case USBRQ_HID_GET_PROTOCOL:
-			if (rq->wValue.bytes[1] < 1)
-				protocolVer = rq->wValue.bytes[1];
-			return 0;
-		case USBRQ_HID_SET_PROTOCOL:
-			usbMsgPtr = &protocolVer;
-			return 1;
 		default:
 			return 0;
 	}
@@ -116,13 +93,13 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
 
     // we don't need to send anything in the modifier byte.
     reportBuffer[0] = 0;
-    
+
     bool_t p1StartPressed = FALSE;
     for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
-        
+
         button_t* button = &buttons[iButton];
         bool_t rawState = getButtonState(button);
-        
+
         if (rawState == button->debouncedState) {
             resetCycles(button);
         } else {
@@ -133,19 +110,15 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
                 (*numChanged)++;
             }
         }
-        
-        if (button->debouncedState) {
-            // TODO: add buffer overflow protection.
-	    
-	    // If both starts are pressed we will send the escape char to the PC.
-	    // This relies on the fact that p1Start is always checked before p2.
-	    if (button == p1Start) {
-		p1StartPressed = TRUE;
-	    } else if (button == p2Start
-		       && p1StartPressed) {
-		*bothStartsPressed = TRUE;
-	    }
-	    
+
+        if (button->debouncedState && *numPressed < REPORT_BUF_LEN) {
+            // If both starts are pressed we will send the escape char to the PC.
+            // This relies on the fact that p1Start is always checked before p2.
+            if (button == p1Start) {
+                p1StartPressed = TRUE;
+            } else if (button == p2Start && p1StartPressed) {
+                *bothStartsPressed = TRUE;
+            }
             reportBuffer[++(*numPressed)] = button->key;
         }
     }
@@ -215,81 +188,72 @@ void initButtons() {
     addButton(PORT_C, P2_F, KEY_M, &index);
 }
 
+//#define FLASH_LED
+
+#ifdef FLASH_LED
+void flash_led(void) {
+    while (1) {
+        PORTD |= RED_LED;
+        _delay_ms (1000);
+        PORTD &= ~RED_LED;
+        _delay_ms (1000);
+    }
+}
+#endif
+
+
+//TODO
+//
+//* fix all warnings
+//* Do we need to do a device connect/disconnect on startup?
+//* Do we need to implement idle rate?
+//* test the device functionality from startup.
+//* modify descriptor to use a joystick to increase button presses.
+//* remote bothstarts pressed, this should just be a separate button.
+//* modify addbutton shit so that it uses a macro to build an array, less memory.
+//* check that timer is correctly initialized, scope?
+//* set_report, get_protocol, set_protocol necessary?
+
 int main(void) {
 
     DDRD |= RED_LED;
-    
+#ifdef FLASH_LED
+    flash_led();
+#endif
+
     wdt_enable(WDTO_1S);
-    /* Even if you don't use the watchdog, turn it off here. On newer devices,
-     * the status of the watchdog (on/off, period) is PRESERVED OVER RESET!
-     */
-	 
-    /* RESET status: all port bits are inputs without pull-up.
-     * That's the way we need D+ and D-. Therefore we don't need any
-     * additional hardware initialization.
-     */
     usbInit();
-    usbDeviceDisconnect();  /* enforce re-enumeration, do this while interrupts are disabled! */
-    uint8_t i = 0;
-    while(--i){             /* fake USB disconnect for > 250 ms */
-        wdt_reset();
-        _delay_ms(1);
-    }
-    usbDeviceConnect();
 
     GICR |= IVCE;
     GICR |= IVSEL;
-    
+
     sei();
-    
+
     TCCR0 = 0x5;
     TCNT0 = 0;
     memset(reportBuffer, 0, sizeof(reportBuffer));
-    
+
     initButtons();
-    
+
     uint8_t idleCounter = 0;
-    bool_t updateNeeded = FALSE;
-    
+
     PORTD |= RED_LED;
-    
+
     while(1) {
         wdt_reset();
         usbPoll();
-        
+
         if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-            
+
             int8_t numPressed;
             int8_t numChanged;
-	    bool_t bothStartsPressed;
+            bool_t bothStartsPressed;
             debounceButtons(reportBuffer, &numPressed, &numChanged, &bothStartsPressed);
-	    
-	    if (numChanged != 0) {
-		updateNeeded = TRUE;
-	    }
-	    
-	    if (bothStartsPressed) {
-		memset(reportBuffer, 0, sizeof(reportBuffer));
-		reportBuffer[1] = KEY_esc;
-	    }
-	    
-	    if (idleRate != 0) {
-		if (--idleCounter == 0) {
-			idleCounter = idleRate;
-			updateNeeded = TRUE;
-		}
-	    }
-	    
-	    if(updateNeeded && usbInterruptIsReady()) {
-		updateNeeded = FALSE;
-		usbSetInterrupt(reportBuffer, 8);
-		usbPoll();
-		while(!usbInterruptIsReady()) {
-		    wdt_reset();
-		}
-		usbSetInterrupt(reportBuffer + 8, 6);
-	    }
+
+            if(usbInterruptIsReady()) {
+                usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
+            }
         }
     }
 }
