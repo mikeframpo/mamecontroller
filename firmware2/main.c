@@ -191,8 +191,9 @@ void flash_led(void) {
 //TODO
 //
 //* Probably just need to implement get_idle, set_idle, get_report (prob not used)
-//* modify descriptor to use a joystick to increase button presses.
+//* modify descriptor to use a joystick or non-boot-keyboard to increase button presses.
 //* check that timer is correctly initialized, scope?
+//* test poll rate is as expected, how is poll rate set?
 //* test the device functionality from startup.
 
 int main(void) {
