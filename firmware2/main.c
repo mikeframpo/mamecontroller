@@ -31,6 +31,15 @@ const PROGMEM char usbHidReportDescriptor[35] = {   /* USB report descriptor */
     0xc0                           // END_COLLECTION
 };
 
+#define CREATE_BUTTON(port, pin, key) \
+    { \
+        port, \
+        pin, \
+        FALSE, \
+        RELEASED_CYCLES, \
+        key \
+    }
+
 #define REPORT_BUF_LEN 1
 static uint8_t reportBuffer[REPORT_BUF_LEN + 1];    /* buffer for HID reports, extra 1 is for the modifier byte. */
 static uint8_t idleRate = 1;
@@ -56,8 +65,36 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 	}
 }
 
-#define NUM_BUTTONS 22
-button_t buttons[NUM_BUTTONS];
+button_t buttons[] = {
+
+    CREATE_BUTTON(PORT_D, P1_UP, KEY_Q),
+    CREATE_BUTTON(PORT_D, P1_DOWN, KEY_W),
+    CREATE_BUTTON(PORT_C, P1_LEFT, KEY_E),
+    CREATE_BUTTON(PORT_D, P1_RIGHT, KEY_R),
+    
+    CREATE_BUTTON(PORT_D, P1_START, KEY_F),
+
+    CREATE_BUTTON(PORT_A, P1_A, KEY_A),
+    CREATE_BUTTON(PORT_A, P1_B, KEY_S),
+    CREATE_BUTTON(PORT_A, P1_C, KEY_D),
+    CREATE_BUTTON(PORT_A, P1_D, KEY_Z),
+    CREATE_BUTTON(PORT_A, P1_E, KEY_X),
+    CREATE_BUTTON(PORT_A, P1_F, KEY_C),
+    
+    CREATE_BUTTON(PORT_B, P2_UP, KEY_T),
+    CREATE_BUTTON(PORT_B, P2_DOWN, KEY_Y),
+    CREATE_BUTTON(PORT_B, P2_LEFT, KEY_U),
+    CREATE_BUTTON(PORT_B, P2_RIGHT, KEY_I),
+    
+    CREATE_BUTTON(PORT_A, P2_START, KEY_K),
+    
+    CREATE_BUTTON(PORT_C, P2_A, KEY_G),
+    CREATE_BUTTON(PORT_C, P2_B, KEY_H),
+    CREATE_BUTTON(PORT_C, P2_C, KEY_J),
+    CREATE_BUTTON(PORT_C, P2_D, KEY_B),
+    CREATE_BUTTON(PORT_C, P2_E, KEY_N),
+    CREATE_BUTTON(PORT_C, P2_F, KEY_M)
+};
 
 static inline bool_t getButtonState(button_t* button) {
     switch(button->port) {
@@ -91,7 +128,7 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
     // we don't need to send anything in the modifier byte.
     reportBuffer[0] = 0;
 
-    for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
+    for (iButton = 0; iButton < sizeof(buttons); iButton++) {
 
         button_t* button = &buttons[iButton];
         bool_t rawState = getButtonState(button);
@@ -113,66 +150,28 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
     }
 }
 
-void addButton(port_t port, uint8_t pin, keycode_t key, int* index) {
-    
-    buttons[*index].port = port;
-    buttons[*index].pin = pin;
-    buttons[*index].debouncedState = FALSE;
-    buttons[*index].cyclesRemaining = RELEASED_CYCLES;
-    buttons[*index].key = key;
-    
-    //pullup
-    switch(port) {
-        case PORT_A:
-            PORTA |= pin;
-            break;
-        case PORT_B:
-            PORTB |= pin;
-            break;
-        case PORT_C:
-            PORTC |= pin;
-            break;
-        case PORT_D:
-            PORTD |= pin;
-            break;
-        default:
-            break;
-    }
-    
-    (*index)++;
-}
-
 void initButtons() {
-    
-    int index = 0;
-    
-    addButton(PORT_D, P1_UP, KEY_Q, &index);
-    addButton(PORT_D, P1_DOWN, KEY_W, &index);
-    addButton(PORT_C, P1_LEFT, KEY_E, &index);
-    addButton(PORT_D, P1_RIGHT, KEY_R, &index);
-    
-    addButton(PORT_D, P1_START, KEY_F, &index);
 
-    addButton(PORT_A, P1_A, KEY_A, &index);
-    addButton(PORT_A, P1_B, KEY_S, &index);
-    addButton(PORT_A, P1_C, KEY_D, &index);
-    addButton(PORT_A, P1_D, KEY_Z, &index);
-    addButton(PORT_A, P1_E, KEY_X, &index);
-    addButton(PORT_A, P1_F, KEY_C, &index);
-    
-    addButton(PORT_B, P2_UP, KEY_T, &index);
-    addButton(PORT_B, P2_DOWN, KEY_Y, &index);
-    addButton(PORT_B, P2_LEFT, KEY_U, &index);
-    addButton(PORT_B, P2_RIGHT, KEY_I, &index);
-    
-    addButton(PORT_A, P2_START, KEY_K, &index);
-    
-    addButton(PORT_C, P2_A, KEY_G, &index);
-    addButton(PORT_C, P2_B, KEY_H, &index);
-    addButton(PORT_C, P2_C, KEY_J, &index);
-    addButton(PORT_C, P2_D, KEY_B, &index);
-    addButton(PORT_C, P2_E, KEY_N, &index);
-    addButton(PORT_C, P2_F, KEY_M, &index);
+    int8_t iButton;
+    // pullup on all the inputs.
+    for (iButton = 0; iButton < sizeof(buttons); iButton++) {
+        switch(buttons[iButton].port) {
+            case PORT_A:
+                PORTA |= buttons[iButton].pin;
+                break;
+            case PORT_B:
+                PORTB |= buttons[iButton].pin;
+                break;
+            case PORT_C:
+                PORTC |= buttons[iButton].pin;
+                break;
+            case PORT_D:
+                PORTD |= buttons[iButton].pin;
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 //#define FLASH_LED
@@ -192,8 +191,6 @@ void flash_led(void) {
 //TODO
 //
 //* Probably just need to implement get_idle, set_idle, get_report (prob not used)
-//* remote bothstarts pressed, this should just be a separate button.
-//* modify addbutton shit so that it uses a macro to build an array, less memory.
 //* modify descriptor to use a joystick to increase button presses.
 //* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
