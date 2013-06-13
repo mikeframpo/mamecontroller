@@ -10,24 +10,18 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-const PROGMEM char usbHidReportDescriptor[35] = {   /* USB report descriptor */
+const PROGMEM char usbHidReportDescriptor[23] = {
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x06,                    // USAGE (Keyboard)
+    0x09, 0x05,                    // USAGE (Game Pad)
     0xa1, 0x01,                    // COLLECTION (Application)
-    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
-    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
-    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
-    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
-    0x75, 0x01,                    //   REPORT_SIZE (1)
-    0x95, 0x08,                    //   REPORT_COUNT (8)
-    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
-    0x95, 0x01,                    //   REPORT_COUNT (1)
-    0x75, 0x08,                    //   REPORT_SIZE (8)
-    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
-    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
-    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
-    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+    0x05, 0x09,                    //     USAGE_PAGE (Button)
+    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+    0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
+    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+    0x95, 0x18,                    //     REPORT_COUNT (24)
+    0x75, 0x01,                    //     REPORT_SIZE (1)
+    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
     0xc0                           // END_COLLECTION
 };
 
@@ -40,8 +34,8 @@ const PROGMEM char usbHidReportDescriptor[35] = {   /* USB report descriptor */
         key \
     }
 
-#define REPORT_BUF_LEN 1
-static uint8_t reportBuffer[REPORT_BUF_LEN + 1];    /* buffer for HID reports, extra 1 is for the modifier byte. */
+#define REPORT_BUF_LEN 3
+static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports, extra 1 is for the modifier byte. */
 static uint8_t idleRate = 1;
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
@@ -191,7 +185,7 @@ void flash_led(void) {
 //TODO
 //
 //* Probably just need to implement get_idle, set_idle, get_report (prob not used)
-//* modify descriptor to use a joystick or non-boot-keyboard to increase button presses.
+//* Implement 24bit gamepad descriptor.
 //* check that timer is correctly initialized, scope?
 //* test poll rate is as expected, how is poll rate set?
 //* test the device functionality from startup.
@@ -232,7 +226,7 @@ int main(void) {
 
             int8_t numPressed;
             int8_t numChanged;
-            debounceButtons(reportBuffer, &numPressed, &numChanged);
+            //debounceButtons(reportBuffer, &numPressed, &numChanged);
 
             if(usbInterruptIsReady()) {
                 usbSetInterrupt(reportBuffer, sizeof(reportBuffer));

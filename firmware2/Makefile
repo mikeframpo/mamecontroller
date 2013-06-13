@@ -11,7 +11,7 @@ DEVICE  = m16
 F_CPU   = 12000000	# in Hz
 FUSE_L  = 0xEF
 FUSE_H  = 0xC9
-AVRDUDE = avrdude -c avrftdi -p $(DEVICE) -E noreset # edit this line for your programmer
+AVRDUDE = avrdude -c avrftdi -p $(DEVICE) # edit this line for your programmer
 
 CFLAGS  = -Iusbdrv -I. -DDEBUG_LEVEL=0
 OBJECTS = usbdrv/usbdrv.o usbdrv/usbdrvasm.o main.o
