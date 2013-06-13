@@ -186,22 +186,15 @@ void toggle_led(void) {
     }
 }
 
-//#define TEST_REPORT
-
-
 //TODO
 //
 //* Probably just need to implement get_idle, set_idle, get_report (prob not used)
-//* check that timer is correctly initialized, scope?
 //* test poll rate is as expected, how is poll rate set?
+//* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
+//* see how much we can reduce the depressed/release cycles to.
 
 int main(void) {
-
-#ifdef TEST_REPORT
-    int8_t iButton = 0;
-    uint8_t iPoll = 0;
-#endif
 
     DDRD |= RED_LED;
 #ifdef FLASH_LED
@@ -234,19 +227,8 @@ int main(void) {
 
         if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-#ifdef TEST_REPORT
-            if (iPoll == UINT8_MAX) {
-                toggle_led ();
-                iButton = (iButton + 1) % NUM_BUTTONS;
-                int8_t iByte = iButton >> 3;
-                int8_t iBit = iButton % 8;
-                memset(reportBuffer, 0, sizeof(reportBuffer));
-                reportBuffer[iByte] |= (1 << iBit);
-            }
-            iPoll++;
-#else
+
             debounceButtons(reportBuffer);
-#endif
 
             if(usbInterruptIsReady()) {
                 usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
