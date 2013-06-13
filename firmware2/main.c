@@ -10,6 +10,48 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
+#define CREATE_BUTTON(port, pin) \
+    { \
+        port, \
+        pin, \
+        FALSE, \
+        RELEASED_CYCLES \
+    }
+
+button_t buttons[] = {
+
+    CREATE_BUTTON(PORT_D, P1_UP),
+    CREATE_BUTTON(PORT_D, P1_DOWN),
+    CREATE_BUTTON(PORT_C, P1_LEFT),
+    CREATE_BUTTON(PORT_D, P1_RIGHT),
+    
+    CREATE_BUTTON(PORT_D, P1_START),
+
+    CREATE_BUTTON(PORT_A, P1_A),
+    CREATE_BUTTON(PORT_A, P1_B),
+    CREATE_BUTTON(PORT_A, P1_C),
+    CREATE_BUTTON(PORT_A, P1_D),
+    CREATE_BUTTON(PORT_A, P1_E),
+    CREATE_BUTTON(PORT_A, P1_F),
+    
+    CREATE_BUTTON(PORT_B, P2_UP),
+    CREATE_BUTTON(PORT_B, P2_DOWN),
+    CREATE_BUTTON(PORT_B, P2_LEFT),
+    CREATE_BUTTON(PORT_B, P2_RIGHT),
+    
+    CREATE_BUTTON(PORT_A, P2_START),
+    
+    CREATE_BUTTON(PORT_C, P2_A),
+    CREATE_BUTTON(PORT_C, P2_B),
+    CREATE_BUTTON(PORT_C, P2_C),
+    CREATE_BUTTON(PORT_C, P2_D),
+    CREATE_BUTTON(PORT_C, P2_E),
+    CREATE_BUTTON(PORT_C, P2_F),
+};
+
+#define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
+#define REPORT_SIZE 3 /* 1 bit per button, rounded up to the nearest byte. */
+
 const PROGMEM char usbHidReportDescriptor[23] = {
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
     0x09, 0x05,                    // USAGE (Game Pad)
@@ -19,23 +61,13 @@ const PROGMEM char usbHidReportDescriptor[23] = {
     0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
     0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
     0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    0x95, 0x18,                    //     REPORT_COUNT (24)
+    0x95, NUM_BUTTONS,             //     REPORT_COUNT (24)
     0x75, 0x01,                    //     REPORT_SIZE (1)
     0x81, 0x02,                    //     INPUT (Data,Var,Abs)
     0xc0                           // END_COLLECTION
 };
 
-#define CREATE_BUTTON(port, pin, key) \
-    { \
-        port, \
-        pin, \
-        FALSE, \
-        RELEASED_CYCLES, \
-        key \
-    }
-
-#define REPORT_BUF_LEN 3
-static uint8_t reportBuffer[REPORT_BUF_LEN];    /* buffer for HID reports, extra 1 is for the modifier byte. */
+static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
 static uint8_t idleRate = 1;
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
@@ -58,37 +90,6 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 			return 0;
 	}
 }
-
-button_t buttons[] = {
-
-    CREATE_BUTTON(PORT_D, P1_UP, KEY_Q),
-    CREATE_BUTTON(PORT_D, P1_DOWN, KEY_W),
-    CREATE_BUTTON(PORT_C, P1_LEFT, KEY_E),
-    CREATE_BUTTON(PORT_D, P1_RIGHT, KEY_R),
-    
-    CREATE_BUTTON(PORT_D, P1_START, KEY_F),
-
-    CREATE_BUTTON(PORT_A, P1_A, KEY_A),
-    CREATE_BUTTON(PORT_A, P1_B, KEY_S),
-    CREATE_BUTTON(PORT_A, P1_C, KEY_D),
-    CREATE_BUTTON(PORT_A, P1_D, KEY_Z),
-    CREATE_BUTTON(PORT_A, P1_E, KEY_X),
-    CREATE_BUTTON(PORT_A, P1_F, KEY_C),
-    
-    CREATE_BUTTON(PORT_B, P2_UP, KEY_T),
-    CREATE_BUTTON(PORT_B, P2_DOWN, KEY_Y),
-    CREATE_BUTTON(PORT_B, P2_LEFT, KEY_U),
-    CREATE_BUTTON(PORT_B, P2_RIGHT, KEY_I),
-    
-    CREATE_BUTTON(PORT_A, P2_START, KEY_K),
-    
-    CREATE_BUTTON(PORT_C, P2_A, KEY_G),
-    CREATE_BUTTON(PORT_C, P2_B, KEY_H),
-    CREATE_BUTTON(PORT_C, P2_C, KEY_J),
-    CREATE_BUTTON(PORT_C, P2_D, KEY_B),
-    CREATE_BUTTON(PORT_C, P2_E, KEY_N),
-    CREATE_BUTTON(PORT_C, P2_F, KEY_M)
-};
 
 static inline bool_t getButtonState(button_t* button) {
     switch(button->port) {
@@ -113,16 +114,11 @@ static inline void resetCycles(button_t* button) {
     }
 }
 
-void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChanged) {
+void debounceButtons(uint8_t* reportBuffer) {
     int iButton;
-    *numPressed = 0;
-    *numChanged = 0;
-    memset(reportBuffer, 0, REPORT_BUF_LEN);
+    memset(reportBuffer, 0, REPORT_SIZE);
 
-    // we don't need to send anything in the modifier byte.
-    reportBuffer[0] = 0;
-
-    for (iButton = 0; iButton < sizeof(buttons); iButton++) {
+    for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
 
         button_t* button = &buttons[iButton];
         bool_t rawState = getButtonState(button);
@@ -134,12 +130,13 @@ void debounceButtons(uint8_t* reportBuffer, int8_t* numPressed, int8_t* numChang
             if (button->cyclesRemaining == 0) {
                 button->debouncedState = rawState;
                 resetCycles(button);
-                (*numChanged)++;
             }
         }
 
-        if (button->debouncedState && *numPressed < REPORT_BUF_LEN) {
-            reportBuffer[++(*numPressed)] = button->key;
+        if (button->debouncedState) {
+            int8_t bytepos = iButton >> 3; // equivalent to divide by 8
+            int8_t bitpos = iButton % 8;
+            reportBuffer[bytepos] |= (1 << bitpos);
         }
     }
 }
@@ -148,7 +145,7 @@ void initButtons() {
 
     int8_t iButton;
     // pullup on all the inputs.
-    for (iButton = 0; iButton < sizeof(buttons); iButton++) {
+    for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
         switch(buttons[iButton].port) {
             case PORT_A:
                 PORTA |= buttons[iButton].pin;
@@ -181,16 +178,30 @@ void flash_led(void) {
 }
 #endif
 
+void toggle_led(void) {
+    if (PIND & RED_LED) {
+        PORTD &= ~RED_LED;
+    } else {
+        PORTD |= RED_LED;
+    }
+}
+
+//#define TEST_REPORT
+
 
 //TODO
 //
 //* Probably just need to implement get_idle, set_idle, get_report (prob not used)
-//* Implement 24bit gamepad descriptor.
 //* check that timer is correctly initialized, scope?
 //* test poll rate is as expected, how is poll rate set?
 //* test the device functionality from startup.
 
 int main(void) {
+
+#ifdef TEST_REPORT
+    int8_t iButton = 0;
+    uint8_t iPoll = 0;
+#endif
 
     DDRD |= RED_LED;
 #ifdef FLASH_LED
@@ -223,10 +234,19 @@ int main(void) {
 
         if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-
-            int8_t numPressed;
-            int8_t numChanged;
-            //debounceButtons(reportBuffer, &numPressed, &numChanged);
+#ifdef TEST_REPORT
+            if (iPoll == UINT8_MAX) {
+                toggle_led ();
+                iButton = (iButton + 1) % NUM_BUTTONS;
+                int8_t iByte = iButton >> 3;
+                int8_t iBit = iButton % 8;
+                memset(reportBuffer, 0, sizeof(reportBuffer));
+                reportBuffer[iByte] |= (1 << iBit);
+            }
+            iPoll++;
+#else
+            debounceButtons(reportBuffer);
+#endif
 
             if(usbInterruptIsReady()) {
                 usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
