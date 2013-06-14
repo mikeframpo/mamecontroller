@@ -213,8 +213,10 @@ int main(void) {
 
     sei();
 
-    TCCR0 = 0x5;
+    TCCR0 = 0x5; // F_CPU / 1024
+    TCCR1B = 0x1; // F_CPU / 1
     TCNT0 = 0;
+    TCNT1 = 0;
     memset(reportBuffer, 0, sizeof(reportBuffer));
 
     initButtons();
@@ -225,11 +227,13 @@ int main(void) {
         wdt_reset();
         usbPoll();
 
+        if (TCNT1 > 1200) { //1200 = 100us
+            TCNT1 = 0;
+            debounceButtons(reportBuffer);
+        }
+
         if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-
-            debounceButtons(reportBuffer);
-
             if(usbInterruptIsReady()) {
                 usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
             }

@@ -44,8 +44,8 @@
 #define P2_E (1 << 3) //green
 #define P2_F (1 << 5) //orange
 
-#define DEPRESSED_CYCLES 3
-#define RELEASED_CYCLES 6
+#define DEPRESSED_CYCLES 7
+#define RELEASED_CYCLES 4
 
 typedef enum {
     PORT_A,
@@ -57,11 +57,9 @@ typedef enum {
 typedef uint8_t bool_t;
 
 typedef struct {
-    
     port_t port;
     uint8_t pin;
-    
-    bool_t debouncedState; //non-zero indicates that the button is being pressed.
+    bool_t debouncedState;  //non-zero indicates that the button is being pressed.
     int8_t cyclesRemaining;
 } button_t;
 
