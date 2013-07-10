@@ -10,64 +10,75 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-#define CREATE_BUTTON(port, pin) \
+#define CREATE_BUTTON(port, pin, key) \
     { \
         port, \
         pin, \
         FALSE, \
-        RELEASED_CYCLES \
+        RELEASED_CYCLES, \
+        key \
     }
 
 button_t buttons[] = {
 
-    CREATE_BUTTON(PORT_D, P1_UP),
-    CREATE_BUTTON(PORT_D, P1_DOWN),
-    CREATE_BUTTON(PORT_C, P1_LEFT),
-    CREATE_BUTTON(PORT_D, P1_RIGHT),
+    CREATE_BUTTON(PORT_D, P1_UP, KEY_W),
+    CREATE_BUTTON(PORT_D, P1_DOWN, KEY_S),
+    CREATE_BUTTON(PORT_C, P1_LEFT, KEY_A),
+    CREATE_BUTTON(PORT_D, P1_RIGHT, KEY_D),
     
-    CREATE_BUTTON(PORT_D, P1_START),
+    CREATE_BUTTON(PORT_D, P1_START, KEY_Q),
 
-    CREATE_BUTTON(PORT_A, P1_A),
-    CREATE_BUTTON(PORT_A, P1_B),
-    CREATE_BUTTON(PORT_A, P1_C),
-    CREATE_BUTTON(PORT_A, P1_D),
-    CREATE_BUTTON(PORT_A, P1_E),
-    CREATE_BUTTON(PORT_A, P1_F),
+    CREATE_BUTTON(PORT_A, P1_A, MOD_LCTRL),
+    CREATE_BUTTON(PORT_A, P1_B, MOD_LSHIFT),
+    CREATE_BUTTON(PORT_A, P1_C, MOD_LALT),
+    CREATE_BUTTON(PORT_A, P1_D, KEY_R),
+    CREATE_BUTTON(PORT_A, P1_E, KEY_R),
+    CREATE_BUTTON(PORT_A, P1_F, KEY_R),
     
-    CREATE_BUTTON(PORT_B, P2_UP),
-    CREATE_BUTTON(PORT_B, P2_DOWN),
-    CREATE_BUTTON(PORT_B, P2_LEFT),
-    CREATE_BUTTON(PORT_B, P2_RIGHT),
+    CREATE_BUTTON(PORT_B, P2_UP, KEY_U),
+    CREATE_BUTTON(PORT_B, P2_DOWN, KEY_J),
+    CREATE_BUTTON(PORT_B, P2_LEFT, KEY_H),
+    CREATE_BUTTON(PORT_B, P2_RIGHT, KEY_K),
     
-    CREATE_BUTTON(PORT_A, P2_START),
+    CREATE_BUTTON(PORT_A, P2_START, KEY_R),
     
-    CREATE_BUTTON(PORT_C, P2_A),
-    CREATE_BUTTON(PORT_C, P2_B),
-    CREATE_BUTTON(PORT_C, P2_C),
-    CREATE_BUTTON(PORT_C, P2_D),
-    CREATE_BUTTON(PORT_C, P2_E),
-    CREATE_BUTTON(PORT_C, P2_F),
+    CREATE_BUTTON(PORT_C, P2_A, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_B, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_C, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_D, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_E, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_F, KEY_R),
 };
 
 #define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
-#define REPORT_SIZE 3 /* 1 bit per button, rounded up to the nearest byte. */
+#define SIMUL_BUTTONS 9
+#define REPORT_COUNT (SIMUL_BUTTONS + 1)
 
-const PROGMEM char usbHidReportDescriptor[23] = {
+const PROGMEM char usbHidReportDescriptor[37] = {
     0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,                    // USAGE (Game Pad)
+    0x09, 0x06,                    // USAGE (Keyboard)
     0xa1, 0x01,                    // COLLECTION (Application)
-    0x05, 0x09,                    //     USAGE_PAGE (Button)
-    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
-    0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
-    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    0x95, NUM_BUTTONS,             //     REPORT_COUNT (24)
-    0x75, 0x01,                    //     REPORT_SIZE (1)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0xc0                           // END_COLLECTION
+    0x05, 0x07,                    //   USAGE_PAGE (Keyboard)
+
+    0x19, 0xe0,                    //   USAGE_MINIMUM (Keyboard LeftControl)
+    0x29, 0xe7,                    //   USAGE_MAXIMUM (Keyboard Right GUI)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //   LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //   REPORT_SIZE (1)
+    0x95, 0x08,                    //   REPORT_COUNT (8)
+    0x81, 0x02,                    //   INPUT (Data,Var,Abs)
+    
+    0x95, 0x09,                    //   REPORT_COUNT
+    0x75, 0x08,                    //   REPORT_SIZE (8)
+    0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
+    0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
+    0x19, 0x00,                    //   USAGE_MINIMUM (Reserved (no event indicated))
+    0x29, 0x65,                    //   USAGE_MAXIMUM (Keyboard Application)
+    0x81, 0x00,                    //   INPUT (Data,Ary,Abs)
+    0xc0,                           // END_COLLECTION
 };
 
-static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
+static uint8_t reportBuffer[REPORT_COUNT];
 static uint8_t idleRate = 1;
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
@@ -116,7 +127,8 @@ static inline void resetCycles(button_t* button) {
 
 void debounceButtons(uint8_t* reportBuffer) {
     int iButton;
-    memset(reportBuffer, 0, REPORT_SIZE);
+    int iReport = 0;
+    memset(reportBuffer, 0, REPORT_COUNT);
 
     for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
 
@@ -134,9 +146,7 @@ void debounceButtons(uint8_t* reportBuffer) {
         }
 
         if (button->debouncedState) {
-            int8_t bytepos = iButton >> 3; // equivalent to divide by 8
-            int8_t bitpos = iButton % 8;
-            reportBuffer[bytepos] |= (1 << bitpos);
+            //TODO: write the report
         }
     }
 }
@@ -193,6 +203,16 @@ void toggle_led(void) {
 //* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
 //* see how much we can reduce the depressed/release cycles to.
+// 
+// idle implementation:
+// if idle is 0, only send when report has changed.
+// if non-zero, send every idle * 4ms
+// if polled and not time to send yet, send NAK
+// if anything changed, report anyway
+//
+// keyboard
+// non-modifiers must be input,array,absolute
+//
 
 int main(void) {
 
