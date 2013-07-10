@@ -180,6 +180,7 @@ typedef struct {
     bool_t debouncedState; //non-zero indicates that the button is being pressed.
     int8_t cyclesRemaining;
     keycode_t key;
+    uint8_t mod_mask;
 } button_t;
 
 #endif

@@ -16,7 +16,8 @@
         pin, \
         FALSE, \
         RELEASED_CYCLES, \
-        key \
+        key, \
+        0 \
     }
 
 button_t buttons[] = {
@@ -26,28 +27,28 @@ button_t buttons[] = {
     CREATE_BUTTON(PORT_C, P1_LEFT, KEY_A),
     CREATE_BUTTON(PORT_D, P1_RIGHT, KEY_D),
     
-    CREATE_BUTTON(PORT_D, P1_START, KEY_Q),
+    CREATE_BUTTON(PORT_D, P1_START, KEY_1),
 
     CREATE_BUTTON(PORT_A, P1_A, MOD_LCTRL),
     CREATE_BUTTON(PORT_A, P1_B, MOD_LSHIFT),
     CREATE_BUTTON(PORT_A, P1_C, MOD_LALT),
-    CREATE_BUTTON(PORT_A, P1_D, KEY_R),
-    CREATE_BUTTON(PORT_A, P1_E, KEY_R),
-    CREATE_BUTTON(PORT_A, P1_F, KEY_R),
+    CREATE_BUTTON(PORT_A, P1_D, KEY_Z),
+    CREATE_BUTTON(PORT_A, P1_E, KEY_X),
+    CREATE_BUTTON(PORT_A, P1_F, KEY_C),
     
     CREATE_BUTTON(PORT_B, P2_UP, KEY_U),
     CREATE_BUTTON(PORT_B, P2_DOWN, KEY_J),
     CREATE_BUTTON(PORT_B, P2_LEFT, KEY_H),
     CREATE_BUTTON(PORT_B, P2_RIGHT, KEY_K),
     
-    CREATE_BUTTON(PORT_A, P2_START, KEY_R),
+    CREATE_BUTTON(PORT_A, P2_START, KEY_2),
     
-    CREATE_BUTTON(PORT_C, P2_A, KEY_R),
-    CREATE_BUTTON(PORT_C, P2_B, KEY_R),
-    CREATE_BUTTON(PORT_C, P2_C, KEY_R),
-    CREATE_BUTTON(PORT_C, P2_D, KEY_R),
-    CREATE_BUTTON(PORT_C, P2_E, KEY_R),
-    CREATE_BUTTON(PORT_C, P2_F, KEY_R),
+    CREATE_BUTTON(PORT_C, P2_A, MOD_RCTRL),
+    CREATE_BUTTON(PORT_C, P2_B, MOD_RSHIFT),
+    CREATE_BUTTON(PORT_C, P2_C, MOD_RALT),
+    CREATE_BUTTON(PORT_C, P2_D, KEY_B),
+    CREATE_BUTTON(PORT_C, P2_E, KEY_N),
+    CREATE_BUTTON(PORT_C, P2_F, KEY_M),
 };
 
 #define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
@@ -146,7 +147,11 @@ void debounceButtons(uint8_t* reportBuffer) {
         }
 
         if (button->debouncedState) {
-            //TODO: write the report
+            if (button->mod_mask != 0) {
+                reportBuffer[0] |= button->mod_mask;
+            } else if (iReport < SIMUL_BUTTONS) {
+                reportBuffer[iReport++] = button->key;
+            }
         }
     }
 }
@@ -171,6 +176,12 @@ void initButtons() {
                 break;
             default:
                 break;
+        }
+        keycode_t key = buttons[iButton].key;
+        if (key >= MOD_LCTRL
+            && key <= MOD_RGUI) {
+
+            buttons[iButton].mod_mask = (1 << (key - MOD_LCTRL));
         }
     }
 }
