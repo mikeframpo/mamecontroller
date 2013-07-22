@@ -13,7 +13,7 @@
 #define CREATE_BUTTON(port, pin, key) \
     { \
         port, \
-        pin, \
+        (1 << pin), \
         FALSE, \
         RELEASED_CYCLES, \
         key, \
@@ -21,21 +21,23 @@
     }
 
 button_t buttons[] = {
-
-    CREATE_BUTTON(PORT_D, P1_UP, KEY_W),
-    CREATE_BUTTON(PORT_D, P1_DOWN, KEY_S),
-    CREATE_BUTTON(PORT_C, P1_LEFT, KEY_A),
-    CREATE_BUTTON(PORT_D, P1_RIGHT, KEY_D),
     
-    CREATE_BUTTON(PORT_D, P1_START, KEY_1),
+    CREATE_BUTTON(PORT_A, 0, KEY_1),        //brown     p1 start
 
-    CREATE_BUTTON(PORT_A, P1_A, MOD_LCTRL),
-    CREATE_BUTTON(PORT_A, P1_B, MOD_LSHIFT),
-    CREATE_BUTTON(PORT_A, P1_C, MOD_LALT),
-    CREATE_BUTTON(PORT_A, P1_D, KEY_Z),
-    CREATE_BUTTON(PORT_A, P1_E, KEY_X),
-    CREATE_BUTTON(PORT_A, P1_F, KEY_C),
-    
+    CREATE_BUTTON(PORT_A, 6, MOD_LCTRL),    //purple    p1 A
+    CREATE_BUTTON(PORT_A, 4, MOD_LSHIFT),   //green     p1 B
+    CREATE_BUTTON(PORT_A, 2, MOD_LALT),     //orange    p1 C
+    CREATE_BUTTON(PORT_A, 5, KEY_Z),        //blue      p1 1
+    CREATE_BUTTON(PORT_A, 3, KEY_X),        //yellow    p1 2
+    CREATE_BUTTON(PORT_A, 1, KEY_C),        //red       p1 3
+
+    CREATE_BUTTON(PORT_D, 1, KEY_W),        //black     p1 up
+    CREATE_BUTTON(PORT_C, 7, KEY_S),        //brown     p1 down
+    CREATE_BUTTON(PORT_D, 3, KEY_A),        //red       p1 left
+    CREATE_BUTTON(PORT_D, 4, KEY_D),        //orange    p1 right
+
+    CREATE_BUTTON(PORT_D, 0, KEY_Q),        //white     quit
+    /*
     CREATE_BUTTON(PORT_B, P2_UP, KEY_U),
     CREATE_BUTTON(PORT_B, P2_DOWN, KEY_J),
     CREATE_BUTTON(PORT_B, P2_LEFT, KEY_H),
@@ -49,10 +51,11 @@ button_t buttons[] = {
     CREATE_BUTTON(PORT_C, P2_D, KEY_B),
     CREATE_BUTTON(PORT_C, P2_E, KEY_N),
     CREATE_BUTTON(PORT_C, P2_F, KEY_M),
+    */
 };
 
 #define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
-#define SIMUL_BUTTONS 9
+#define SIMUL_BUTTONS 7
 #define REPORT_COUNT (SIMUL_BUTTONS + 1)
 
 const PROGMEM char usbHidReportDescriptor[37] = {
@@ -69,7 +72,7 @@ const PROGMEM char usbHidReportDescriptor[37] = {
     0x95, 0x08,                    //   REPORT_COUNT (8)
     0x81, 0x02,                    //   INPUT (Data,Var,Abs)
     
-    0x95, 0x09,                    //   REPORT_COUNT
+    0x95, SIMUL_BUTTONS,                    //   REPORT_COUNT
     0x75, 0x08,                    //   REPORT_SIZE (8)
     0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
     0x25, 0x65,                    //   LOGICAL_MAXIMUM (101)
@@ -150,7 +153,7 @@ void debounceButtons(uint8_t* reportBuffer) {
             if (button->mod_mask != 0) {
                 reportBuffer[0] |= button->mod_mask;
             } else if (iReport < SIMUL_BUTTONS) {
-                reportBuffer[iReport++] = button->key;
+                reportBuffer[++iReport] = button->key;
             }
         }
     }
@@ -225,8 +228,13 @@ void toggle_led(void) {
 // non-modifiers must be input,array,absolute
 //
 
+//#define KEY_TEST
+
 int main(void) {
 
+#ifdef KEY_TEST
+    uint16_t slow_timer = 0;
+#endif
     DDRD |= RED_LED;
 #ifdef FLASH_LED
     flash_led();
@@ -252,7 +260,7 @@ int main(void) {
 
     initButtons();
 
-    PORTD |= RED_LED;
+    //PORTD |= RED_LED;
 
     while(1) {
         wdt_reset();
@@ -265,6 +273,13 @@ int main(void) {
 
         if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
+#ifdef KEY_TEST
+            if (++slow_timer > 500) {
+                reportBuffer[1] = KEY_A;
+                slow_timer = 0;
+                PORTD |= RED_LED;
+            }
+#endif
             if(usbInterruptIsReady()) {
                 usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
             }
