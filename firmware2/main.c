@@ -10,16 +10,18 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-#define CREATE_BUTTON(port, pin) \
+#define CREATE_BUTTON(port, pin, btype) \
     { \
         port, \
         pin, \
         FALSE, \
         RELEASED_CYCLES \
+        btype \
     }
 
 button_t buttons[] = {
 
+    //TODO: put these into a different array for each set.
     CREATE_BUTTON(PORT_D, P1_UP),
     CREATE_BUTTON(PORT_D, P1_DOWN),
     CREATE_BUTTON(PORT_C, P1_LEFT),
@@ -52,19 +54,46 @@ button_t buttons[] = {
 #define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
 #define REPORT_SIZE 3 /* 1 bit per button, rounded up to the nearest byte. */
 
-const PROGMEM char usbHidReportDescriptor[23] = {
-    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    0x09, 0x05,                    // USAGE (Game Pad)
-    0xa1, 0x01,                    // COLLECTION (Application)
-    0x05, 0x09,                    //     USAGE_PAGE (Button)
-    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
-    0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
-    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
-    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    0x95, NUM_BUTTONS,             //     REPORT_COUNT (24)
-    0x75, 0x01,                    //     REPORT_SIZE (1)
-    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    0xc0                           // END_COLLECTION
+const PROGMEM char usbHidReportDescriptor[43] = {
+    //0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    //0x09, 0x05,                    // USAGE (Game Pad)
+    //0xa1, 0x01,                    // COLLECTION (Application)
+    //0x05, 0x09,                    //     USAGE_PAGE (Button)
+    //0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+    //0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
+    //0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+    //0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+    //0x95, NUM_BUTTONS,             //     REPORT_COUNT (24)
+    //0x75, 0x01,                    //     REPORT_SIZE (1)
+    //0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+    //0xc0                           // END_COLLECTION
+
+    /* Controller and report_id 1 */
+    0x05, 0x01,         // USAGE_PAGE (Generic Desktop)
+    0x09, 0x04,         // USAGE (Joystick)
+    0xa1, 0x01,         //  COLLECTION (Application)
+    0x09, 0x01,         //      USAGE (Pointer)
+    0xa1, 0x00,         //      COLLECTION (Physical)
+    0x85, 0x01,         //          REPORT_ID (1)
+    0x07, 0x30,         //          USAGE (X)
+    0x09, 0x31,         //          USAGE (Y)
+    //TODO: change this to a signed format.
+    0x15, 0x00,         //          LOGICAL_MINIMUM (0)
+    0x26, 0xff, 0x00,   //          LOGICAL_MAXIMUM (255)
+    0x75, 0x08,         //          REPORT_SIZE (8)
+    0x95, 0x02,         //          REPORT_COUNT (2)
+    0x81, 0x02,         //          INPUT (Data,Var,Abs)
+
+    0x05, 0x09,			//			USAGE_PAGE (Button)
+    0x19, 1,			//   		USAGE_MINIMUM (Button 1)
+    0x29, 8,			//   		USAGE_MAXIMUM (Button 8)
+    0x15, 0x00,			//   		LOGICAL_MINIMUM (0)
+    0x25, 0x01,			//   		LOGICAL_MAXIMUM (1)
+    0x75, 1,			// 			REPORT_SIZE (1)
+    0x95, 8,			//			REPORT_COUNT (8)
+    0x81, 0x02,			//			INPUT (Data,Var,Abs)
+	0xc0,				//		END_COLLECTION
+    0xc0,				// END_COLLECTION
 };
 
 static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
@@ -114,8 +143,28 @@ static inline void resetCycles(button_t* button) {
     }
 }
 
+static inline void buildReport (button_t* button, uint8_t* reportBuffer) {
+    switch (button->btype) {
+        case GP_UP:
+            ((int8_t)reportBuffer[1]) = 127;
+            break;
+        case GP_DOWN:
+            ((int8_t)reportBuffer[1]) = -127;
+            break;
+        case GP_LEFT:
+            ((int8_t)reportBuffer[2]) = -127;
+            break;
+        case GP_RIGHT:
+            ((int8_t)reportBuffer[2]) = 127;
+            break;
+        default:
+            reportBuffer[3] &= (1 << button->btype);
+    }
+}
+
 void debounceButtons(uint8_t* reportBuffer) {
     int iButton;
+    //TODO: replace this with initReport to get x,y into nice initial values.
     memset(reportBuffer, 0, REPORT_SIZE);
 
     for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
@@ -133,10 +182,13 @@ void debounceButtons(uint8_t* reportBuffer) {
             }
         }
 
+        // Generate the report.
         if (button->debouncedState) {
-            int8_t bytepos = iButton >> 3; // equivalent to divide by 8
-            int8_t bitpos = iButton % 8;
-            reportBuffer[bytepos] |= (1 << bitpos);
+            // [0]  report id
+            // [1]  x pos 0-255
+            // [2]  y pos 0-255
+            // [3]  [0..5] buttons, [6] start, [7] coin/quit.
+            buildReport(button, reportBuffer);
         }
     }
 }
@@ -188,11 +240,19 @@ void toggle_led(void) {
 
 //TODO
 //
-//* Probably just need to implement get_idle, set_idle, get_report (prob not used)
+//* test if getReport in usb function is hit
 //* test poll rate is as expected, how is poll rate set?
 //* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
 //* see how much we can reduce the depressed/release cycles to.
+//
+// 
+// idle implementation:
+// if idle is 0, only send when report has changed.
+// if non-zero, send every idle * 4ms
+// if polled and not time to send yet, send NAK
+// if anything changed, report anyway
+//
 
 int main(void) {
 

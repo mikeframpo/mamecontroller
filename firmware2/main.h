@@ -56,11 +56,30 @@ typedef enum {
 
 typedef uint8_t bool_t;
 
+typedef enum {
+    // lower 8 values correspond to bits in the
+    // button-state byte.
+    GP_BUT_A = 0,
+    GP_BUT_B,
+    GP_BUT_C,
+    GP_BUT_D,
+    GP_BUT_E,
+    GP_BUT_F,
+    GP_BUT_START,
+    GP_BUT_EXTRA,
+    // directional buttons are handled separately
+    GP_UP,
+    GP_DOWN,
+    GP_LEFT,
+    GP_RIGHT,
+} gamepad_button_t;
+
 typedef struct {
     port_t port;
     uint8_t pin;
     bool_t debouncedState;  //non-zero indicates that the button is being pressed.
     int8_t cyclesRemaining;
+    gamepad_button_t btype;
 } button_t;
 
 #endif
