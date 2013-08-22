@@ -15,87 +15,73 @@
         port, \
         pin, \
         FALSE, \
-        RELEASED_CYCLES \
+        RELEASED_CYCLES, \
         btype \
     }
 
-button_t buttons[] = {
+button_t gp1_buttons[] = {
 
-    //TODO: put these into a different array for each set.
-    CREATE_BUTTON(PORT_D, P1_UP),
-    CREATE_BUTTON(PORT_D, P1_DOWN),
-    CREATE_BUTTON(PORT_C, P1_LEFT),
-    CREATE_BUTTON(PORT_D, P1_RIGHT),
+    CREATE_BUTTON(PORT_D, (1 << 1), GP_UP),
+    CREATE_BUTTON(PORT_C, (1 << 7), GP_DOWN),
+    CREATE_BUTTON(PORT_D, (1 << 3), GP_LEFT),
+    CREATE_BUTTON(PORT_D, (1 << 4), GP_RIGHT),
     
-    CREATE_BUTTON(PORT_D, P1_START),
+    CREATE_BUTTON(PORT_A, (1 << 1), GP_BUT_A),
+    CREATE_BUTTON(PORT_A, (1 << 3), GP_BUT_B),
+    CREATE_BUTTON(PORT_A, (1 << 5), GP_BUT_C),
+    CREATE_BUTTON(PORT_A, (1 << 2), GP_BUT_D),
+    CREATE_BUTTON(PORT_A, (1 << 4), GP_BUT_E),
+    CREATE_BUTTON(PORT_A, (1 << 6), GP_BUT_F),
 
-    CREATE_BUTTON(PORT_A, P1_A),
-    CREATE_BUTTON(PORT_A, P1_B),
-    CREATE_BUTTON(PORT_A, P1_C),
-    CREATE_BUTTON(PORT_A, P1_D),
-    CREATE_BUTTON(PORT_A, P1_E),
-    CREATE_BUTTON(PORT_A, P1_F),
-    
-    CREATE_BUTTON(PORT_B, P2_UP),
-    CREATE_BUTTON(PORT_B, P2_DOWN),
-    CREATE_BUTTON(PORT_B, P2_LEFT),
-    CREATE_BUTTON(PORT_B, P2_RIGHT),
-    
-    CREATE_BUTTON(PORT_A, P2_START),
-    
-    CREATE_BUTTON(PORT_C, P2_A),
-    CREATE_BUTTON(PORT_C, P2_B),
-    CREATE_BUTTON(PORT_C, P2_C),
-    CREATE_BUTTON(PORT_C, P2_D),
-    CREATE_BUTTON(PORT_C, P2_E),
-    CREATE_BUTTON(PORT_C, P2_F),
+    CREATE_BUTTON(PORT_D, (1 << 0), GP_BUT_START),
+
+    //CREATE_BUTTON(PORT_B, P2_UP),
+    //CREATE_BUTTON(PORT_B, P2_DOWN),
+    //CREATE_BUTTON(PORT_B, P2_LEFT),
+    //CREATE_BUTTON(PORT_B, P2_RIGHT),
+    //
+    //CREATE_BUTTON(PORT_A, P2_START),
+    //
+    //CREATE_BUTTON(PORT_C, P2_A),
+    //CREATE_BUTTON(PORT_C, P2_B),
+    //CREATE_BUTTON(PORT_C, P2_C),
+    //CREATE_BUTTON(PORT_C, P2_D),
+    //CREATE_BUTTON(PORT_C, P2_E),
+    //CREATE_BUTTON(PORT_C, P2_F),
 };
 
-#define NUM_BUTTONS (sizeof(buttons) / sizeof(buttons[0]))
+gamepad_t gp1 = {
+    .id = 1,
+    .buttons = gp1_buttons,
+    .num_buttons = sizeof(gp1_buttons) / sizeof(gp1_buttons[0]),
+};
+
+const PROGMEM char usbHidReportDescriptor[] = {
+    0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
+    0x09, 0x04,                    // USAGE (Joystick)
+    0xa1, 0x01,                    // COLLECTION (Application)
+    0x09, 0x01,                    //   USAGE (Pointer)
+    0xa1, 0x00,                    //   COLLECTION (Physical)
+    0x09, 0x30,                    //     USAGE (X)
+    0x09, 0x31,                    //     USAGE (Y)
+    0x15, 0x81,                    //     LOGICAL_MINIMUM (-127)
+    0x25, 0x7f,                    //     LOGICAL_MAXIMUM (127)
+    0x75, 0x08,                    //     REPORT_SIZE (8)
+    0x95, 0x02,                    //     REPORT_COUNT (2)
+    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+    0x05, 0x09,                    //     USAGE_PAGE (Button)
+    0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
+    0x29, 0x08,                    //     USAGE_MAXIMUM (Button 8)
+    0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
+    0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
+    0x75, 0x01,                    //     REPORT_SIZE (1)
+    0x95, 0x08,                    //     REPORT_COUNT (8)
+    0x81, 0x02,                    //     INPUT (Data,Var,Abs)
+    0xc0,                          //     END_COLLECTION
+    0xc0                           // END_COLLECTION
+};
+
 #define REPORT_SIZE 3 /* 1 bit per button, rounded up to the nearest byte. */
-
-const PROGMEM char usbHidReportDescriptor[43] = {
-    //0x05, 0x01,                    // USAGE_PAGE (Generic Desktop)
-    //0x09, 0x05,                    // USAGE (Game Pad)
-    //0xa1, 0x01,                    // COLLECTION (Application)
-    //0x05, 0x09,                    //     USAGE_PAGE (Button)
-    //0x19, 0x01,                    //     USAGE_MINIMUM (Button 1)
-    //0x29, 0x18,                    //     USAGE_MAXIMUM (Button 24)
-    //0x15, 0x00,                    //     LOGICAL_MINIMUM (0)
-    //0x25, 0x01,                    //     LOGICAL_MAXIMUM (1)
-    //0x95, NUM_BUTTONS,             //     REPORT_COUNT (24)
-    //0x75, 0x01,                    //     REPORT_SIZE (1)
-    //0x81, 0x02,                    //     INPUT (Data,Var,Abs)
-    //0xc0                           // END_COLLECTION
-
-    /* Controller and report_id 1 */
-    0x05, 0x01,         // USAGE_PAGE (Generic Desktop)
-    0x09, 0x04,         // USAGE (Joystick)
-    0xa1, 0x01,         //  COLLECTION (Application)
-    0x09, 0x01,         //      USAGE (Pointer)
-    0xa1, 0x00,         //      COLLECTION (Physical)
-    0x85, 0x01,         //          REPORT_ID (1)
-    0x07, 0x30,         //          USAGE (X)
-    0x09, 0x31,         //          USAGE (Y)
-    //TODO: change this to a signed format.
-    0x15, 0x00,         //          LOGICAL_MINIMUM (0)
-    0x26, 0xff, 0x00,   //          LOGICAL_MAXIMUM (255)
-    0x75, 0x08,         //          REPORT_SIZE (8)
-    0x95, 0x02,         //          REPORT_COUNT (2)
-    0x81, 0x02,         //          INPUT (Data,Var,Abs)
-
-    0x05, 0x09,			//			USAGE_PAGE (Button)
-    0x19, 1,			//   		USAGE_MINIMUM (Button 1)
-    0x29, 8,			//   		USAGE_MAXIMUM (Button 8)
-    0x15, 0x00,			//   		LOGICAL_MINIMUM (0)
-    0x25, 0x01,			//   		LOGICAL_MAXIMUM (1)
-    0x75, 1,			// 			REPORT_SIZE (1)
-    0x95, 8,			//			REPORT_COUNT (8)
-    0x81, 0x02,			//			INPUT (Data,Var,Abs)
-	0xc0,				//		END_COLLECTION
-    0xc0,				// END_COLLECTION
-};
-
 static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
 static uint8_t idleRate = 1;
 
@@ -145,31 +131,30 @@ static inline void resetCycles(button_t* button) {
 
 static inline void buildReport (button_t* button, uint8_t* reportBuffer) {
     switch (button->btype) {
-        case GP_UP:
-            ((int8_t)reportBuffer[1]) = 127;
-            break;
-        case GP_DOWN:
-            ((int8_t)reportBuffer[1]) = -127;
-            break;
         case GP_LEFT:
-            ((int8_t)reportBuffer[2]) = -127;
+            reportBuffer[0] = -127;
             break;
         case GP_RIGHT:
-            ((int8_t)reportBuffer[2]) = 127;
+            reportBuffer[0] = 127;
+            break;
+        case GP_UP:
+            reportBuffer[1] = 127;
+            break;
+        case GP_DOWN:
+            reportBuffer[1] = -127;
             break;
         default:
-            reportBuffer[3] &= (1 << button->btype);
+            reportBuffer[2] |= (1 << button->btype);
     }
 }
 
-void debounceButtons(uint8_t* reportBuffer) {
-    int iButton;
-    //TODO: replace this with initReport to get x,y into nice initial values.
+void debounceButtons(gamepad_t* gamepad, uint8_t* reportBuffer) {
+    uint8_t iButton;
     memset(reportBuffer, 0, REPORT_SIZE);
 
-    for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
+    for (iButton = 0; iButton < gamepad->num_buttons; iButton++) {
 
-        button_t* button = &buttons[iButton];
+        button_t* button = &gamepad->buttons[iButton];
         bool_t rawState = getButtonState(button);
 
         if (rawState == button->debouncedState) {
@@ -193,11 +178,14 @@ void debounceButtons(uint8_t* reportBuffer) {
     }
 }
 
-void initButtons() {
+void initButtons(gamepad_t* gamepad) {
 
     int8_t iButton;
+    button_t* buttons;
     // pullup on all the inputs.
-    for (iButton = 0; iButton < NUM_BUTTONS; iButton++) {
+
+    buttons = gamepad->buttons;
+    for (iButton = 0; iButton < gamepad->num_buttons; iButton++) {
         switch(buttons[iButton].port) {
             case PORT_A:
                 PORTA |= buttons[iButton].pin;
@@ -266,6 +254,7 @@ int main(void) {
     usbDeviceConnect();
 
     wdt_enable(WDTO_1S);
+
     usbInit();
 
     GICR |= IVCE;
@@ -279,9 +268,7 @@ int main(void) {
     TCNT1 = 0;
     memset(reportBuffer, 0, sizeof(reportBuffer));
 
-    initButtons();
-
-    PORTD |= RED_LED;
+    initButtons(&gp1);
 
     while(1) {
         wdt_reset();
@@ -289,7 +276,7 @@ int main(void) {
 
         if (TCNT1 > 1200) { //1200 = 100us
             TCNT1 = 0;
-            debounceButtons(reportBuffer);
+            debounceButtons(&gp1, reportBuffer);
         }
 
         if (TCNT0 > 47) { //47 == 4ms approx

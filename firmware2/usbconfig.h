@@ -227,7 +227,7 @@ section at the end of this file).
  * with libusb: 0x16c0/0x5dc.  Use this VID/PID pair ONLY if you understand
  * the implications!
  */
-#define  USB_CFG_DEVICE_ID        0xdc, 0x05 /* VOTI's lab use PID */
+#define  USB_CFG_DEVICE_ID        0xdc, 0x27 /* VOTI's lab use PID */
 /* This is the ID of the product, low byte first. It is interpreted in the
  * scope of the vendor ID. If you have registered your own VID with usb.org
  * or if you have licensed a PID from somebody else, define it here. Otherwise
@@ -251,7 +251,7 @@ section at the end of this file).
  * obdev's free shared VID/PID pair. See the file USB-IDs-for-free.txt for
  * details.
  */
-#define USB_CFG_DEVICE_NAME     'f', 'i', 'g', 'h', 't', 's', 't', 'i', 'k'
+#define USB_CFG_DEVICE_NAME     'f', 'i', 'g', 'h', 't', 's', 't', 'i', 'z'
 #define USB_CFG_DEVICE_NAME_LEN 9
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USB-IDs-for-free.txt before you assign a name if
@@ -279,7 +279,7 @@ section at the end of this file).
  * HID class is 3, no subclass and protocol required (but may be useful!)
  * CDC class is 2, use subclass 2 and protocol 1 for ACM
  */
-#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    43
+#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    42
 /* Define this to the length of the HID report descriptor, if you implement
  * an HID device. Otherwise don't define it or define it to 0.
  * If you use this define, you must add a PROGMEM character array named

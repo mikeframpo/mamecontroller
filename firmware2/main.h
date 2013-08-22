@@ -82,4 +82,10 @@ typedef struct {
     gamepad_button_t btype;
 } button_t;
 
+typedef struct {
+    uint8_t id;
+    button_t* buttons;
+    uint8_t num_buttons;
+} gamepad_t;
+
 #endif
