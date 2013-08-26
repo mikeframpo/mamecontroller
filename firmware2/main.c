@@ -298,6 +298,7 @@ void toggle_led(void) {
 //* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
 //* see how much we can reduce the depressed/release cycles to.
+//* should be calling usbInterruptIsReady every loop and NAKing if the idle rate has not elapsed.
 
 //usbSetInterrupt will only allow this many bytes to be send at once.
 #define MAX_TX_BYTES 8
