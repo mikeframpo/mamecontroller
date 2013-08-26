@@ -53,16 +53,19 @@ button_t gp2_buttons[] = {
     CREATE_BUTTON(PORT_A, (1 << 7), GP_BUT_START),
 };
 
-gamepad_t gp1 = {
-    .id = 1,
-    .buttons = gp1_buttons,
-    .num_buttons = sizeof(gp1_buttons) / sizeof(gp1_buttons[0]),
-};
+#define NUM_GAMEPADS 2
 
-gamepad_t gp2 = {
-    .id = 2,
-    .buttons = gp2_buttons,
-    .num_buttons = sizeof(gp2_buttons) / sizeof(gp2_buttons[0]),
+gamepad_t gamepads[] = {
+    {
+        .id = 1,
+        .buttons = gp1_buttons,
+        .num_buttons = sizeof(gp1_buttons) / sizeof(gp1_buttons[0]),
+    },
+    {
+        .id = 2,
+        .buttons = gp2_buttons,
+        .num_buttons = sizeof(gp2_buttons) / sizeof(gp2_buttons[0]),
+    }
 };
 
 const PROGMEM char usbHidReportDescriptor[] = {
@@ -116,8 +119,8 @@ const PROGMEM char usbHidReportDescriptor[] = {
 };
 
 #define REPORT_SIZE 4 /* 1 bit per button, rounded up to the nearest byte. */
-static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
-static uint8_t idleRate = 1;
+static uint8_t reportBuffer[REPORT_SIZE * NUM_GAMEPADS];    /* buffer for HID reports, extra 1 is for the modifier byte. */
+static uint8_t idleRate = 0;
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
 	usbRequest_t *rq = (void *)data;
@@ -163,7 +166,7 @@ static inline void resetCycles(button_t* button) {
     }
 }
 
-static void buildReport (gamepad_t* gp, uint8_t* reportBuffer) {
+static uint8_t buildReport(gamepad_t* gp, uint8_t* reportBuffer) {
 
     int iBut;
     button_t* button;
@@ -192,10 +195,26 @@ static void buildReport (gamepad_t* gp, uint8_t* reportBuffer) {
             }
         }
     }
+
+    return REPORT_SIZE;
 }
 
-void debounceButtons(gamepad_t* gamepad) {
+static uint8_t buildAllReports(uint8_t* reportBuffer) {
+
+    uint8_t gp;
+    uint8_t bytes = 0;
+    uint8_t* ptr = reportBuffer;
+
+    for (gp = 0; gp < NUM_GAMEPADS; gp++) {
+        bytes += buildReport(&gamepads[gp], ptr);
+        ptr += bytes;
+    }
+    return bytes;
+}
+
+bool_t debounceButtons(gamepad_t* gamepad) {
     uint8_t iButton;
+    bool_t any_changed = FALSE;
     for (iButton = 0; iButton < gamepad->num_buttons; iButton++) {
 
         button_t* button = &gamepad->buttons[iButton];
@@ -208,17 +227,28 @@ void debounceButtons(gamepad_t* gamepad) {
             if (button->cyclesRemaining == 0) {
                 button->debouncedState = rawState;
                 resetCycles(button);
+                any_changed = TRUE;
             }
         }
     }
+    return any_changed;
+}
+
+bool_t debounceGamepads(void) {
+    uint8_t gp;
+    bool_t any_changed = FALSE;
+    for (gp = 0; gp < NUM_GAMEPADS; gp++) {
+        any_changed |= debounceButtons(&gamepads[gp]);
+    }
+    return any_changed;
 }
 
 void initButtons(gamepad_t* gamepad) {
 
     int8_t iButton;
     button_t* buttons;
-    // pullup on all the inputs.
 
+    // pullup on all the inputs.
     buttons = gamepad->buttons;
     for (iButton = 0; iButton < gamepad->num_buttons; iButton++) {
         switch(buttons[iButton].port) {
@@ -268,14 +298,9 @@ void toggle_led(void) {
 //* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
 //* see how much we can reduce the depressed/release cycles to.
-//
-// 
-// idle implementation:
-// if idle is 0, only send when report has changed.
-// if non-zero, send every idle * 4ms
-// if polled and not time to send yet, send NAK
-// if anything changed, report anyway
-//
+
+//usbSetInterrupt will only allow this many bytes to be send at once.
+#define MAX_TX_BYTES 8
 
 int main(void) {
 
@@ -303,24 +328,46 @@ int main(void) {
     TCNT1 = 0;
     memset(reportBuffer, 0, sizeof(reportBuffer));
 
-    initButtons(&gp1);
-    initButtons(&gp2);
+    uint8_t gp;
+    for (gp = 0; gp < NUM_GAMEPADS; gp++) {
+        initButtons(&gamepads[gp]);
+    }
+
+    bool_t send_report = FALSE;
+    bool_t any_changed = FALSE;
+    uint8_t num_periods = 0;
 
     while(1) {
+
         wdt_reset();
-        usbPoll();
+        usbPoll(); //this must be called approx every 50ms
 
         if (TCNT1 > 1200) { //1200 = 100us
             TCNT1 = 0;
-            debounceButtons(&gp1);
-            debounceButtons(&gp2);
+            any_changed = debounceGamepads();
         }
 
-        if (TCNT0 > 47) { //47 == 4ms approx
+        if (idleRate == 0 && any_changed) {
+            send_report = TRUE;
+        } else if (TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-            buildReport(&gp2, reportBuffer);
+            if (++num_periods == idleRate) {
+                send_report = TRUE;
+                num_periods = 0;
+            }
+        }
+
+        if (send_report) {
             if(usbInterruptIsReady()) {
-                usbSetInterrupt(reportBuffer, sizeof(reportBuffer));
+                uint8_t bytes = buildAllReports(reportBuffer);
+                uint8_t* ptr = reportBuffer;
+                while (bytes > 0) {
+                    uint8_t to_send = MIN(bytes, MAX_TX_BYTES);
+                    usbSetInterrupt(ptr, to_send);
+                    bytes -= to_send;
+                }
+                send_report = FALSE;
+                any_changed = FALSE;
             }
         }
     }
