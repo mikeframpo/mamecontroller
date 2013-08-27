@@ -119,8 +119,7 @@ const PROGMEM char usbHidReportDescriptor[] = {
 };
 
 #define REPORT_SIZE 4 /* 1 bit per button, rounded up to the nearest byte. */
-static uint8_t reportBuffer[REPORT_SIZE * NUM_GAMEPADS];    /* buffer for HID reports, extra 1 is for the modifier byte. */
-static uint8_t idleRate = 0;
+static uint8_t reportBuffer[REPORT_SIZE];    /* buffer for HID reports, extra 1 is for the modifier byte. */
 
 uint8_t usbFunctionSetup(uint8_t data[8]) {
 	usbRequest_t *rq = (void *)data;
@@ -129,12 +128,6 @@ uint8_t usbFunctionSetup(uint8_t data[8]) {
 		return 0;
 
 	switch (rq->bRequest) {
-		case USBRQ_HID_GET_IDLE:
-			usbMsgPtr = (usbMsgPtr_t)&idleRate;
-			return 1;
-		case USBRQ_HID_SET_IDLE:
-			idleRate = rq->wValue.bytes[1];
-			return 0;
 		case USBRQ_HID_GET_REPORT:
 	        usbMsgPtr = (usbMsgPtr_t)reportBuffer;
 			return sizeof(reportBuffer);
@@ -166,7 +159,7 @@ static inline void resetCycles(button_t* button) {
     }
 }
 
-static uint8_t buildReport(gamepad_t* gp, uint8_t* reportBuffer) {
+static int8_t buildReport(gamepad_t* gp, uint8_t* reportBuffer) {
 
     int iBut;
     button_t* button;
@@ -199,10 +192,10 @@ static uint8_t buildReport(gamepad_t* gp, uint8_t* reportBuffer) {
     return REPORT_SIZE;
 }
 
-static uint8_t buildAllReports(uint8_t* reportBuffer) {
+static int8_t buildAllReports(uint8_t* reportBuffer) {
 
     uint8_t gp;
-    uint8_t bytes = 0;
+    int8_t bytes = 0;
     uint8_t* ptr = reportBuffer;
 
     for (gp = 0; gp < NUM_GAMEPADS; gp++) {
@@ -302,6 +295,9 @@ void toggle_led(void) {
 
 //usbSetInterrupt will only allow this many bytes to be send at once.
 #define MAX_TX_BYTES 8
+//#define ONE_GP_TEST
+//#define ONE_TX
+#define NORMAL
 
 int main(void) {
 
@@ -315,6 +311,7 @@ int main(void) {
     usbDeviceConnect();
 
     wdt_enable(WDTO_1S);
+    wdt_disable();
 
     usbInit();
 
@@ -329,7 +326,7 @@ int main(void) {
     TCNT1 = 0;
     memset(reportBuffer, 0, sizeof(reportBuffer));
 
-    uint8_t gp;
+    int8_t gp;
     for (gp = 0; gp < NUM_GAMEPADS; gp++) {
         initButtons(&gamepads[gp]);
     }
@@ -337,6 +334,9 @@ int main(void) {
     bool_t send_report = FALSE;
     bool_t any_changed = FALSE;
     uint8_t num_periods = 0;
+
+    // do this once to set the initial state.
+    debounceGamepads();
 
     while(1) {
 
@@ -347,29 +347,41 @@ int main(void) {
             TCNT1 = 0;
             any_changed = debounceGamepads();
         }
+        
+#ifdef ONE_GP_TEST
+        if (TCNT0 > 47) { //47 == 4ms approx
+            if (usbInterruptIsReady()) {
+                buildReport(&gamepads[1], reportBuffer);
+                usbSetInterrupt(reportBuffer, REPORT_SIZE);
+            }
+        }
+#endif
 
-        if (idleRate == 0 && any_changed) {
-            send_report = TRUE;
-        } else if (TCNT0 > 47) { //47 == 4ms approx
+#ifdef ONE_TX
+        if (any_changed || TCNT0 > 47) { //47 == 4ms approx
             TCNT0 = 0;
-            if (++num_periods == idleRate) {
-                send_report = TRUE;
-                num_periods = 0;
-            }
+            toggle_led();
+            buildReport(&gamepads[0], reportBuffer);
+            buildReport(&gamepads[1], ((uint8_t* )reportBuffer) + REPORT_SIZE);
+            usbSetInterrupt(reportBuffer, REPORT_SIZE * 2);
         }
+#endif
 
-        if (send_report) {
-            if(usbInterruptIsReady()) {
-                uint8_t bytes = buildAllReports(reportBuffer);
-                uint8_t* ptr = reportBuffer;
-                while (bytes > 0) {
-                    uint8_t to_send = MIN(bytes, MAX_TX_BYTES);
-                    usbSetInterrupt(ptr, to_send);
-                    bytes -= to_send;
+#ifdef NORMAL
+        if (TCNT0 > 47) { //47 == 4ms approx
+            TCNT0 = 0;
+            toggle_led();
+            for (gp = 0; gp < NUM_GAMEPADS; gp++) {
+                buildReport(&gamepads[gp], reportBuffer);
+                if (usbInterruptIsReady()) {
+                    usbSetInterrupt(reportBuffer, REPORT_SIZE);
+                    while (!usbInterruptIsReady()) {
+                        usbPoll();
+                        wdt_reset();
+                    }
                 }
-                send_report = FALSE;
-                any_changed = FALSE;
             }
         }
+#endif
     }
 }
