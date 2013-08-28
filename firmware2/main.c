@@ -192,19 +192,6 @@ static int8_t buildReport(gamepad_t* gp, uint8_t* reportBuffer) {
     return REPORT_SIZE;
 }
 
-static int8_t buildAllReports(uint8_t* reportBuffer) {
-
-    uint8_t gp;
-    int8_t bytes = 0;
-    uint8_t* ptr = reportBuffer;
-
-    for (gp = 0; gp < NUM_GAMEPADS; gp++) {
-        bytes += buildReport(&gamepads[gp], ptr);
-        ptr += bytes;
-    }
-    return bytes;
-}
-
 bool_t debounceButtons(gamepad_t* gamepad) {
     uint8_t iButton;
     bool_t any_changed = FALSE;
@@ -227,13 +214,15 @@ bool_t debounceButtons(gamepad_t* gamepad) {
     return any_changed;
 }
 
-bool_t debounceGamepads(void) {
-    uint8_t gp;
-    bool_t any_changed = FALSE;
+uint8_t debounceGamepads(void) {
+    int8_t gp;
+    uint8_t must_report = 0;
     for (gp = 0; gp < NUM_GAMEPADS; gp++) {
-        any_changed |= debounceButtons(&gamepads[gp]);
+        if (debounceButtons(&gamepads[gp])) {
+            must_report |= (1 << gp);
+        }
     }
-    return any_changed;
+    return must_report;
 }
 
 void initButtons(gamepad_t* gamepad) {
@@ -263,6 +252,13 @@ void initButtons(gamepad_t* gamepad) {
     }
 }
 
+inline void pollButtons(uint8_t* must_report) {
+    if (TCNT1 > 1200) { //1200 = 100us
+        TCNT1 = 0;
+        *must_report |= debounceGamepads();
+    }
+}
+
 //#define FLASH_LED
 
 #ifdef FLASH_LED
@@ -286,18 +282,7 @@ void toggle_led(void) {
 
 //TODO
 //
-//* test if getReport in usb function is hit
-//* test poll rate is as expected, how is poll rate set?
-//* check that timer is correctly initialized, scope?
 //* test the device functionality from startup.
-//* see how much we can reduce the depressed/release cycles to.
-//* should be calling usbInterruptIsReady every loop and NAKing if the idle rate has not elapsed.
-
-//usbSetInterrupt will only allow this many bytes to be send at once.
-#define MAX_TX_BYTES 8
-//#define ONE_GP_TEST
-//#define ONE_TX
-#define NORMAL
 
 int main(void) {
 
@@ -331,57 +316,37 @@ int main(void) {
         initButtons(&gamepads[gp]);
     }
 
-    bool_t send_report = FALSE;
-    bool_t any_changed = FALSE;
-    uint8_t num_periods = 0;
+    // put buttons in the initial state.
+    int8_t db;
+    for (db = 0; db < 100; db++)
+        debounceGamepads();
 
-    // do this once to set the initial state.
-    debounceGamepads();
-
+    uint8_t must_report = 0;
     while(1) {
 
         wdt_reset();
         usbPoll(); //this must be called approx every 50ms
 
-        if (TCNT1 > 1200) { //1200 = 100us
-            TCNT1 = 0;
-            any_changed = debounceGamepads();
-        }
-        
-#ifdef ONE_GP_TEST
-        if (TCNT0 > 47) { //47 == 4ms approx
-            if (usbInterruptIsReady()) {
-                buildReport(&gamepads[1], reportBuffer);
-                usbSetInterrupt(reportBuffer, REPORT_SIZE);
-            }
-        }
-#endif
+        pollButtons(&must_report);
 
-#ifdef ONE_TX
-        if (any_changed || TCNT0 > 47) { //47 == 4ms approx
-            TCNT0 = 0;
-            toggle_led();
-            buildReport(&gamepads[0], reportBuffer);
-            buildReport(&gamepads[1], ((uint8_t* )reportBuffer) + REPORT_SIZE);
-            usbSetInterrupt(reportBuffer, REPORT_SIZE * 2);
-        }
-#endif
-
-#ifdef NORMAL
-        if (TCNT0 > 47) { //47 == 4ms approx
-            TCNT0 = 0;
-            toggle_led();
+        if (must_report) {
             for (gp = 0; gp < NUM_GAMEPADS; gp++) {
-                buildReport(&gamepads[gp], reportBuffer);
+                if (must_report & (1 << gp) == 0)
+                    continue;
+
                 if (usbInterruptIsReady()) {
+                    buildReport(&gamepads[gp], reportBuffer);
                     usbSetInterrupt(reportBuffer, REPORT_SIZE);
+                    must_report &= ~(1 << gp);
+
                     while (!usbInterruptIsReady()) {
                         usbPoll();
                         wdt_reset();
+                        pollButtons(&must_report);
                     }
                 }
             }
         }
-#endif
     }
 }
+
