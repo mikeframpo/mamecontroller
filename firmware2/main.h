@@ -9,7 +9,7 @@
 
 #define RED_LED (1 << 6) //portD
 
-#define DEPRESSED_CYCLES 7
+#define DEPRESSED_CYCLES 20
 #define RELEASED_CYCLES 4
 
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
