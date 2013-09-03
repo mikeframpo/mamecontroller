@@ -33,7 +33,8 @@ button_t gp1_buttons[] = {
     CREATE_BUTTON(PORT_A, (1 << 4), GP_BUT_E),
     CREATE_BUTTON(PORT_A, (1 << 6), GP_BUT_F),
 
-    CREATE_BUTTON(PORT_D, (1 << 0), GP_BUT_START),
+    CREATE_BUTTON(PORT_A, (1 << 0), GP_BUT_START),
+    CREATE_BUTTON(PORT_D, (1 << 0), GP_BUT_EXTRA) //quit
 };
 
 button_t gp2_buttons[] = {
@@ -51,6 +52,7 @@ button_t gp2_buttons[] = {
     CREATE_BUTTON(PORT_C, (1 << 6), GP_BUT_F),
 
     CREATE_BUTTON(PORT_A, (1 << 7), GP_BUT_START),
+    CREATE_BUTTON(PORT_D, (1 << 7), GP_BUT_EXTRA) //coin
 };
 
 #define NUM_GAMEPADS 2
